@@ -1,8 +1,8 @@
 name: Tests
 on:
+  push:
+    branches: [main]
   pull_request:
-  schedule:
-    - cron: "0 23 * * *"
 
 jobs:
   tests:
@@ -17,50 +17,25 @@ jobs:
       UPSTASH_REDIS_REST_TOKEN: ${{ secrets.UPSTASH_REDIS_REST_TOKEN }}
 
     steps:
-      - name: Check out code into the Go module directory
-        uses: actions/checkout@v4
-
-      - uses: actions/cache@v4
+      - name: Set up Go
+        uses: actions/setup-go@v5
         with:
-          path: ~/go/pkg/mod
-          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
-          restore-keys: |
-            ${{ runner.os }}-go-
+          go-version: ${{ matrix.go }}
+
+      - name: Check out code
+        uses: actions/checkout@v4
 
       - name: Get dependencies
         run: go mod download
 
       - name: Build
-        run: go build -v .
+        run: go build -v ./...
 
-      - name: Format
-        run: test -z $(gofmt -l .)
-
-        # - name: golangci-lint
-        #   uses: golangci/golangci-lint-action@v2
-        #   with:
-        #     version: latest
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v6
+        with:
+          version: latest
 
       - name: Tests
         timeout-minutes: 10
-        run: go test -v ./...
-
-  cleanup:
-    name: Flush Database
-
-    runs-on: ubuntu-latest
-    needs: [tests]
-    steps:
-      - name: Set up Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: 1.25
-
-      - name: Check out code into the Go module directory
-        uses: actions/checkout@v4
-
-      - name: Flush Database
-        run: go run ./cmd/flush
-        env:
-          UPSTASH_REDIS_REST_URL: ${{ secrets.UPSTASH_REDIS_REST_URL }}
-          UPSTASH_REDIS_REST_TOKEN: ${{ secrets.UPSTASH_REDIS_REST_TOKEN }}
+        run: go test -v -race -covermode=atomic ./...

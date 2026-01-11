@@ -9,29 +9,30 @@ import (
 	"github.com/claywarren/upstash-go/client"
 )
 
+// Upstash is a client for the Upstash Redis REST API.
 type Upstash struct {
 	client client.Client
 }
 
+// Options provides configuration for the Upstash client.
 type Options struct {
-
-	// The Upstash endpoint you want to use
+	// Url is the Upstash endpoint you want to use.
 	// Falls back to `UPSTASH_REDIS_REST_URL` environment variable.
 	Url string
 
-	// The Upstash edge url you want to use
+	// EdgeUrl is the Upstash edge url you want to use.
 	// Falls back to `UPSTASH_REDIS_EDGE_URL` environment variable.
 	EdgeUrl string
 
-	// Requests to the Upstash API must provide an API token.
+	// Token is the API token required for requests to the Upstash API.
 	Token string
 
-	// Read requests will try to read from edge first
+	// ReadFromEdge specifies if read requests should try to read from edge first.
 	ReadFromEdge bool
 }
 
+// New creates a new Upstash client with the provided options.
 func New(options Options) (Upstash, error) {
-
 	if options.EdgeUrl == "" {
 		options.EdgeUrl = os.Getenv("UPSTASH_REDIS_EDGE_URL")
 	}
@@ -48,28 +49,7 @@ func New(options Options) (Upstash, error) {
 	}, nil
 }
 
-type Response struct {
-	Result string `json:"result"`
-	Error  string `json:"error"`
-}
-
-// Returns all keys matching pattern.
-
-// While the time complexity for this operation is O(N), the constant times are fairly low. For example, Redis running on an entry level laptop can scan a 1 million key database in 40 milliseconds.
-
-// Warning: consider KEYS as a command that should only be used in production environments with extreme care. It may ruin performance when it is executed against large databases. This command is intended for debugging and special operations, such as changing your keyspace layout. Don't use KEYS in your regular application code. If you're looking for a way to find keys in a subset of your keyspace, consider using SCAN or sets.
-
-// Supported glob-style patterns:
-
-// h?llo matches hello, hallo and hxllo
-// h*llo matches hllo and heeeello
-// h[ae]llo matches hello and hallo, but not hillo
-// h[^e]llo matches hallo, hbllo, ... but not hello
-// h[a-b]llo matches hallo and hbllo
-// Use \ to escape special characters if you want to match them verbatim.
-
-// Return value
-// Array reply: list of keys matching pattern.
+// Keys returns all keys matching the provided pattern.
 func (u *Upstash) Keys(ctx context.Context, pattern string) ([]string, error) {
 	res, err := u.client.Read(ctx, client.Request{
 		Body: []string{"keys", pattern},
@@ -98,15 +78,8 @@ func (u *Upstash) Keys(ctx context.Context, pattern string) ([]string, error) {
 	return nil, fmt.Errorf("unexpected return type for keys: %T", res)
 }
 
-// If key already exists and is a string, this command appends the value at
-// the end of the string. If key does not exist it is created and set as an
-// empty string, so APPEND will be similar to SET in this special case.
-//
-// Return the length of the string after the append operation.
-//
-// https://redis.io/commands/append
+// Append appends a value to a key. If the key does not exist, it is created as an empty string.
 func (u *Upstash) Append(ctx context.Context, key string, value string) (int, error) {
-
 	res, err := u.client.Write(ctx, client.Request{
 		Body: []string{"append", key, value},
 	})
@@ -116,11 +89,8 @@ func (u *Upstash) Append(ctx context.Context, key string, value string) (int, er
 	return int(res.(float64)), nil
 }
 
-// Returns  the value of key after the decrement
-//
-// https://redis.io/commands/decr
+// Decr decrements the number stored at key by one.
 func (u *Upstash) Decr(ctx context.Context, key string) (int, error) {
-
 	res, err := u.client.Write(ctx, client.Request{
 		Body: []string{"decr", key},
 	})
@@ -130,19 +100,8 @@ func (u *Upstash) Decr(ctx context.Context, key string) (int, error) {
 	return int(res.(float64)), nil
 }
 
-// Decrements the number stored at key by decrement. If the key does not
-// exist, it is set to 0 before performing the operation. An error is
-// returned if the key contains a value of the wrong type or contains a
-// string that can not be represented as integer. This operation is limited
-// to 64 bit signed integers.
-//
-// See INCR for extra information on increment/decrement operations.
-//
-// # Returns the value of key after the decrement
-//
-// https://redis.io/commands/decrby
+// DecrBy decrements the number stored at key by the provided decrement value.
 func (u *Upstash) DecrBy(ctx context.Context, key string, decrement int) (int, error) {
-
 	res, err := u.client.Write(ctx, client.Request{
 		Body: []string{"decrby", key, fmt.Sprintf("%d", decrement)},
 	})
@@ -152,15 +111,8 @@ func (u *Upstash) DecrBy(ctx context.Context, key string, decrement int) (int, e
 	return int(res.(float64)), nil
 }
 
-// Get the value of key. If the key does not exist the special value nil is
-// returned. An error is returned if the value stored at key is not a
-// string, because GET only handles string values.
-//
-// Returns the value of key, or empty string when key does not exist.
-//
-// https://redis.io/commands/get
+// Get retrieves the value of a key.
 func (u *Upstash) Get(ctx context.Context, key string) (string, error) {
-
 	res, err := u.client.Read(ctx, client.Request{
 		Path: []string{"get", key},
 	})
@@ -174,20 +126,8 @@ func (u *Upstash) Get(ctx context.Context, key string) (string, error) {
 	return res.(string), nil
 }
 
-// Returns the substring of the string value stored at key, determined by
-// the offsets start and end (both are inclusive). Negative offsets can be
-// used in order to provide an offset starting from the end of the string.
-// So -1 means the last character, -2 the penultimate and so forth.
-//
-// The function handles out of range requests by limiting the resulting
-// range to the actual length of the string.
-//
-// Returns the a part of value of `key`, or empty string when `key` does
-// not exist
-//
-// https://redis.io/commands/getrange
+// GetRange returns a substring of the string value stored at a key.
 func (u *Upstash) GetRange(ctx context.Context, key string, start int, end int) (string, error) {
-
 	res, err := u.client.Read(ctx, client.Request{
 		Path: []string{"getrange", key, fmt.Sprintf("%d", start), fmt.Sprintf("%d", end)},
 	})
@@ -198,14 +138,7 @@ func (u *Upstash) GetRange(ctx context.Context, key string, start int, end int) 
 	return res.(string), nil
 }
 
-// Atomically sets key to value and returns the old value stored at key.
-// Returns an error when key exists but does not hold a string value. Any
-// previous time to live associated with the key is discarded on successful
-// SET operation.
-//
-// Returns the old value stored at key, or empty string when key did not exist.
-//
-// https://redis.io/commands/getset
+// GetSet atomically sets a key to a value and returns the old value.
 func (u *Upstash) GetSet(ctx context.Context, key string, value string) (string, error) {
 	res, err := u.client.Write(ctx, client.Request{
 		Body: []string{"getset", key, value},
@@ -217,26 +150,8 @@ func (u *Upstash) GetSet(ctx context.Context, key string, value string) (string,
 	return res.(string), nil
 }
 
-// Increments the number stored at key by one. If the key does not exist,
-// it is set to 0 before performing the operation. An error is returned if
-// the key contains a value of the wrong type or contains a string that can
-// not be represented as integer. This operation is limited to 64 bit
-// signed integers.
-//
-// Note: this is a string operation because Redis does not have a dedicated
-// integer type. The string stored at the key is interpreted as a base-10
-// 64 bit signed integer to execute the operation.
-//
-// Redis stores integers in their integer representation, so for string
-// values that actually hold an integer, there is no overhead for storing
-//
-//	the string representation of the integer.
-//
-// # Returns the value of key after the increment
-//
-// https://redis.io/commands/incr
+// Incr increments the number stored at key by one.
 func (u *Upstash) Incr(ctx context.Context, key string) (int, error) {
-
 	res, err := u.client.Write(ctx, client.Request{
 		Body: []string{"incr", key},
 	})
@@ -246,9 +161,7 @@ func (u *Upstash) Incr(ctx context.Context, key string) (int, error) {
 	return int(res.(float64)), nil
 }
 
-// Returns the value of key after the increment
-//
-// https://redis.io/commands/incrby
+// IncrBy increments the number stored at key by the provided increment value.
 func (u *Upstash) IncrBy(ctx context.Context, key string, increment int) (int, error) {
 	res, err := u.client.Write(ctx, client.Request{
 		Body: []string{"incrby", key, fmt.Sprintf("%d", increment)},
@@ -257,35 +170,9 @@ func (u *Upstash) IncrBy(ctx context.Context, key string, increment int) (int, e
 		return 0, err
 	}
 	return int(res.(float64)), nil
-
 }
 
-// Increment the string representing a floating point number stored at key
-// by the specified increment. By using a negative increment value, the
-// result is that the value stored at the key is decremented (by the obvious
-// properties of addition). If the key does not exist, it is set to 0 before
-// performing the operation. An error is returned if one of the following
-// conditions occur:
-//
-// The key contains a value of the wrong type (not a string). The current key
-// content or the specified increment are not parsable as a double precision
-// floating point number. If the command is successful the new incremented value
-// is stored as the new value of the key (replacing the old one), and returned
-// to the caller as a string.
-//
-// Both the value already contained in the string key and the increment argument
-// can be optionally provided in exponential notation, however the value
-// computed after the increment is stored consistently in the same format, that
-// is, an integer number followed (if needed) by a dot, and a variable number of
-// digits representing the decimal part of the number. Trailing zeroes are
-// always removed.
-//
-// The precision of the output is fixed at 17 digits after the decimal point
-// regardless of the actual internal precision of the computation.
-//
-// Returns the value of key after the increment.
-//
-// https://redis.io/commands/incrbyfloat
+// IncrByFloat increments the string representing a floating point number stored at key by the provided increment.
 func (u *Upstash) IncrByFloat(ctx context.Context, key string, increment float64) (float64, error) {
 	res, err := u.client.Write(ctx, client.Request{
 		Body: []string{"incrbyfloat", key, fmt.Sprintf("%f", increment)},
@@ -298,16 +185,9 @@ func (u *Upstash) IncrByFloat(ctx context.Context, key string, increment float64
 		return 0, err
 	}
 	return f, nil
-
 }
 
-// Returns the values of all specified keys. For every key that does not
-// hold a string value or does not exist, the special value nil is returned.
-// Because of this, the operation never fails.
-//
-// Returns a list of values at the specified keys.
-//
-// https://redis.io/commands/mget
+// MGet returns the values of all specified keys.
 func (u *Upstash) MGet(ctx context.Context, keys []string) ([]string, error) {
 	res, err := u.client.Read(ctx, client.Request{
 		Path: append([]string{"mget"}, keys...),
@@ -324,9 +204,7 @@ func (u *Upstash) MGet(ctx context.Context, keys []string) ([]string, error) {
 	return values, err
 }
 
-// Returns nil, MSET can't fail.
-//
-// https://redis.io/commands/mset
+// MSet sets the given keys to their respective values.
 func (u *Upstash) MSet(ctx context.Context, kvPairs []KV) error {
 	body := []string{"mset"}
 	for _, kv := range kvPairs {
@@ -339,23 +217,7 @@ func (u *Upstash) MSet(ctx context.Context, kvPairs []KV) error {
 	return err
 }
 
-// Sets the given keys to their respective values. MSETNX will not perform
-//
-//	any operation at all even if just a single key already exists.
-//
-// Because of this semantic MSETNX can be used in order to set different
-// keys representing different fields of an unique logic object in a way
-// that ensures that either all the fields or none at all are set.
-//
-// MSETNX is atomic, so all given keys are set at once. It is not possible
-// for clients to see that some of the keys were updated while others are
-// unchanged.
-//
-// Returns:
-// 1 if the all the keys were set.
-// 0 if no key was set (at least one key already existed
-//
-// https://redis.io/commands/msetnx
+// MSetNX sets the given keys to their respective values if none of the keys exist.
 func (u *Upstash) MSetNX(ctx context.Context, kvPairs []KV) (int, error) {
 	body := []string{"msetnx"}
 	for _, kv := range kvPairs {
@@ -374,8 +236,7 @@ func (u *Upstash) MSetNX(ctx context.Context, kvPairs []KV) (int, error) {
 	return int(res.(float64)), nil
 }
 
-// PSETEX works exactly like SETEX with the sole difference that the expire
-// time is specified in milliseconds instead of seconds.
+// PSetEX sets a key to a value with a provided expiration time in milliseconds.
 func (u *Upstash) PSetEX(ctx context.Context, key string, milliseconds int, value string) error {
 	_, err := u.client.Write(ctx, client.Request{
 		Body: []string{"psetex", key, fmt.Sprintf("%d", milliseconds), value},
@@ -383,11 +244,7 @@ func (u *Upstash) PSetEX(ctx context.Context, key string, milliseconds int, valu
 	return err
 }
 
-// Set key to hold the string value. If key already holds a value, it is
-// overwritten, regardless of its type. Any previous time to live associated
-// with the key is discarded on successful SET operation.
-//
-// https://redis.io/commands/set
+// Set sets a key to hold the string value.
 func (u *Upstash) Set(ctx context.Context, key string, value string) error {
 	_, err := u.client.Write(ctx, client.Request{
 		Body: []string{"set", key, value},
@@ -395,14 +252,11 @@ func (u *Upstash) Set(ctx context.Context, key string, value string) error {
 	return err
 }
 
-// Same as Set but with additional options
-//
-// https://redis.io/commands/set
+// SetWithOptions sets a key to hold the string value with additional options.
 func (u *Upstash) SetWithOptions(ctx context.Context, key string, value string, options SetOptions) error {
 	body := []string{"set", key, value}
 	if options.EX != 0 {
 		body = append(body, "ex", fmt.Sprintf("%d", options.EX))
-
 	} else if options.PX != 0 {
 		body = append(body, "px", fmt.Sprintf("%d", options.PX))
 	}
@@ -416,47 +270,21 @@ func (u *Upstash) SetWithOptions(ctx context.Context, key string, value string, 
 		Body: body,
 	})
 	if err != nil {
-
 		return fmt.Errorf("error %s: %w", body, err)
 	}
 	return nil
 }
 
-// Set key to hold the string value and set key to timeout after a given
-// number of seconds. This command is equivalent to executing the following
-// commands:
-//
-//	SET mykey value
-//	EXPIRE mykey seconds
-//
-// SETEX is atomic, and can be reproduced by using the previous two commands
-// inside an MULTI / EXEC block. It is provided as a faster alternative to
-// the given sequence of operations, because this operation is very common
-// when Redis is used as a cache.
-//
-// An error is returned when seconds is invalid.
-//
-// https://redis.io/commands/setex
+// SetEX sets a key to hold the string value with a provided expiration time in seconds.
 func (u *Upstash) SetEX(ctx context.Context, key string, seconds int, value string) error {
-
 	_, err := u.client.Write(ctx, client.Request{
 		Body: []string{"setex", key, fmt.Sprintf("%d", seconds), value},
 	})
 	return err
-
 }
 
-// Set key to hold string value if key does not exist. In that case, it is
-// equal to SET. When key already holds a value, no operation is performed.
-// SETNX is short for "SET if Not eXists".
-//
-// Return:
-// - 1 if the key was set
-// - 0 if the key was not set
-//
-// https://redis.io/commands/setnx
+// SetNX sets a key to hold the string value if the key does not exist.
 func (u *Upstash) SetNX(ctx context.Context, key string, value string) (int, error) {
-
 	res, err := u.client.Write(ctx, client.Request{
 		Body: []string{"setnx", key, value},
 	})
@@ -464,48 +292,17 @@ func (u *Upstash) SetNX(ctx context.Context, key string, value string) (int, err
 		return 0, err
 	}
 	return int(res.(float64)), nil
-
 }
 
-// Overwrites part of the string stored at key, starting at the specified
-// offset, for the entire length of value. If the offset is larger than the
-// current length of the string at key, the string is padded with zero-bytes
-// to make offset fit. Non-existing keys are considered as empty strings, so
-// this command will make sure it holds a string large enough to be able to
-// set value at offset.
-//
-// Note that the maximum offset that you can set is 229 -1 (536870911), as
-// Redis Strings are limited to 512 megabytes. If you need to grow beyond
-// this size, you can use multiple keys.
-//
-// Warning: When setting the last possible byte and the string value stored
-// at key does not yet hold a string value, or holds a small string value,
-// Redis needs to allocate all intermediate memory which can block the
-// server for some time. On a 2010 MacBook Pro, setting byte number
-// 536870911 (512MB allocation) takes ~300ms, setting byte number 134217728
-// (128MB allocation) takes ~80ms, setting bit number 33554432 (32MB
-// allocation) takes ~30ms and setting bit number 8388608 (8MB allocation)
-// takes ~8ms. Note that once this first allocation is done, subsequent
-// calls to SETRANGE for the same key will not have the allocation overhead.
-//
-// Returns the length of the string after it was modified by the command.
-//
-// https://redis.io/commands/setrange
+// SetRange overwrites part of the string stored at a key, starting at the specified offset.
 func (u *Upstash) SetRange(ctx context.Context, key string, offset int, value string) error {
-
 	_, err := u.client.Write(ctx, client.Request{
 		Body: []string{"setrange", key, fmt.Sprintf("%d", offset), value},
 	})
 	return err
-
 }
 
-// Returns the length of the string value stored at key. An error is
-// returned when key holds a non-string value.
-//
-// Returns the length of the string at key, or 0 when key does not exist.
-//
-// https://redis.io/commands/strlen
+// StrLen returns the length of the string value stored at a key.
 func (u *Upstash) StrLen(ctx context.Context, key string) (int, error) {
 	res, err := u.client.Read(ctx, client.Request{
 		Path: []string{"strlen", key},
@@ -517,8 +314,7 @@ func (u *Upstash) StrLen(ctx context.Context, key string) (int, error) {
 	return int(res.(float64)), nil
 }
 
-// Delete all the keys of all the existing databases, not just the currently
-// selected one.
+// FlushAll deletes all keys of all existing databases.
 func (u *Upstash) FlushAll(ctx context.Context) error {
 	_, err := u.client.Write(ctx, client.Request{
 		Body: []string{"flushall"},
