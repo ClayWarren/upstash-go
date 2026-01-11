@@ -52,7 +52,7 @@ func New(options Options) (Upstash, error) {
 // Keys returns all keys matching the provided pattern.
 func (u *Upstash) Keys(ctx context.Context, pattern string) ([]string, error) {
 	res, err := u.client.Read(ctx, client.Request{
-		Body: []string{"keys", pattern},
+		Path: []string{"keys", pattern},
 	})
 	if err != nil {
 		return nil, err
@@ -111,11 +111,8 @@ func (u *Upstash) DecrBy(ctx context.Context, key string, decrement int) (int, e
 	return int(res.(float64)), nil
 }
 
-// Returns the value of key, or empty string when key does not exist.
-//
-// https://redis.io/commands/get
+// Get retrieves the value of a key.
 func (u *Upstash) Get(ctx context.Context, key string) (string, error) {
-
 	res, err := u.client.Read(ctx, client.Request{
 		Path: []string{"get", key},
 	})
@@ -352,4 +349,107 @@ func (u *Upstash) FlushAll(ctx context.Context) error {
 		Body: []string{"flushall"},
 	})
 	return err
+}
+
+// Send executes an arbitrary Redis command.
+// It returns the raw response from the Upstash REST API.
+// Use this for commands that are not yet explicitly typed in this library (e.g. HSET, LPOP).
+func (u *Upstash) Send(ctx context.Context, command string, args ...any) (any, error) {
+	// Construct the command body: [COMMAND, arg1, arg2, ...]
+	body := make([]any, 0, 1+len(args))
+	body = append(body, command)
+	body = append(body, args...)
+
+	res, err := u.client.Write(ctx, client.Request{
+		Body: body,
+	})
+	return res, err
+}
+
+// Pipeline represents a sequence of commands to be executed via Upstash pipeline.
+type Pipeline struct {
+	commands [][]any
+	client   client.Client
+}
+
+// Pipeline creates a new Pipeline.
+func (u *Upstash) Pipeline() *Pipeline {
+	return &Pipeline{
+		commands: make([][]any, 0),
+		client:   u.client,
+	}
+}
+
+// Push adds a command to the pipeline.
+func (p *Pipeline) Push(command string, args ...any) {
+	cmd := make([]any, 0, 1+len(args))
+	cmd = append(cmd, command)
+	cmd = append(cmd, args...)
+	p.commands = append(p.commands, cmd)
+}
+
+// Exec executes the queued commands in the pipeline.
+// Returns an array of results corresponding to the commands.
+func (p *Pipeline) Exec(ctx context.Context) ([]any, error) {
+	// Send to /pipeline
+	res, err := p.client.Write(ctx, client.Request{
+		Path: []string{"pipeline"},
+		Body: p.commands,
+	})
+	if err != nil {
+		return nil, err
+	}
+	if res == nil {
+		return nil, nil
+	}
+
+	// Pipeline returns an array of results
+	if list, ok := res.([]any); ok {
+		return list, nil
+	}
+	return nil, fmt.Errorf("unexpected return type for pipeline: %T", res)
+}
+
+// Multi represents a sequence of commands to be executed as a transaction.
+type Multi struct {
+	commands [][]any
+	client   client.Client
+}
+
+// Multi creates a new Multi (Transaction).
+func (u *Upstash) Multi() *Multi {
+	return &Multi{
+		commands: make([][]any, 0),
+		client:   u.client,
+	}
+}
+
+// Push adds a command to the transaction.
+func (m *Multi) Push(command string, args ...any) {
+	cmd := make([]any, 0, 1+len(args))
+	cmd = append(cmd, command)
+	cmd = append(cmd, args...)
+	m.commands = append(m.commands, cmd)
+}
+
+// Exec executes the queued commands in the transaction.
+// Returns an array of results corresponding to the commands.
+func (m *Multi) Exec(ctx context.Context) ([]any, error) {
+	// Send to /multi-exec
+	res, err := m.client.Write(ctx, client.Request{
+		Path: []string{"multi-exec"},
+		Body: m.commands,
+	})
+	if err != nil {
+		return nil, err
+	}
+	if res == nil {
+		return nil, nil
+	}
+
+	// Transaction returns an array of results
+	if list, ok := res.([]any); ok {
+		return list, nil
+	}
+	return nil, fmt.Errorf("unexpected return type for multi-exec: %T", res)
 }

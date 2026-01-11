@@ -115,16 +115,30 @@ func (c *upstashClient) request(ctx context.Context, method string, path []strin
 		return nil, fmt.Errorf("response returned status code %d: %+v, path: %s", res.StatusCode, string(pretty), path)
 	}
 
-	var response Response
-	err = json.NewDecoder(res.Body).Decode(&response)
+	var rawResponse any
+	err = json.NewDecoder(res.Body).Decode(&rawResponse)
 	if err != nil {
 		return nil, fmt.Errorf("unable to unmarshal response: %w", err)
 	}
-	if response.Error != "" {
-		return nil, fmt.Errorf("%s", response.Error)
-	}
-	return response.Result, nil
 
+	// Handle standard response: {"result": ...} or {"error": ...}
+	if respMap, ok := rawResponse.(map[string]any); ok {
+		if errStr, ok := respMap["error"].(string); ok && errStr != "" {
+			return nil, fmt.Errorf("%s", errStr)
+		}
+		if res, ok := respMap["result"]; ok {
+			return res, nil
+		}
+		// If neither, return the map itself (unexpected but safe)
+		return respMap, nil
+	}
+
+	// Handle pipeline/transaction response: [{"result":...}, ...]
+	if respSlice, ok := rawResponse.([]any); ok {
+		return respSlice, nil
+	}
+
+	return rawResponse, nil
 }
 
 func (c *upstashClient) Read(ctx context.Context, req Request) (any, error) {

@@ -13,8 +13,10 @@ import (
 
 type mockHandler struct {
 	method       string
-	expectedBody []any
+	path         string // Optional: check path
+	expectedBody any    // changed from []any to allow verifying 2D arrays for pipeline
 	response     any
+	rawResponse  bool // if true, do not wrap in {"result":...}
 	status       int
 }
 
@@ -33,18 +35,30 @@ func setupMockServer(t *testing.T, handlers []mockHandler) (*upstash.Upstash, fu
 		// Verify Authorization
 		require.Equal(t, "Bearer mock-token", r.Header.Get("Authorization"))
 
+		// Verify Path (if specified)
+		if h.path != "" {
+			require.Equal(t, h.path, r.URL.Path)
+		}
+
 		// Verify Body if POST
 		if r.Method == "POST" {
-			var body []any
+			var body any
 			_ = json.NewDecoder(r.Body).Decode(&body)
+
+			// We need to compare expectedBody and body.
+			// Since json decoding produces generic maps/slices, we rely on testify.Equal
 			require.Equal(t, h.expectedBody, body)
 		}
 
 		// Send Response
 		w.WriteHeader(h.status)
-		_ = json.NewEncoder(w).Encode(map[string]any{
-			"result": h.response,
-		})
+		if h.rawResponse {
+			_ = json.NewEncoder(w).Encode(h.response)
+		} else {
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"result": h.response,
+			})
+		}
 		step++
 	}))
 
@@ -57,11 +71,88 @@ func setupMockServer(t *testing.T, handlers []mockHandler) (*upstash.Upstash, fu
 	return &u, server.Close
 }
 
+func TestUnitSend(t *testing.T) {
+	u, close := setupMockServer(t, []mockHandler{
+		{
+			method:       "POST",
+			expectedBody: []any{"HSET", "myhash", "field1", "value1"},
+			response:     float64(1),
+			status:       200,
+		},
+	})
+	defer close()
+
+	val, err := u.Send(context.Background(), "HSET", "myhash", "field1", "value1")
+	require.NoError(t, err)
+	require.Equal(t, 1.0, val)
+}
+
+func TestUnitPipeline(t *testing.T) {
+	u, close := setupMockServer(t, []mockHandler{
+		{
+			method: "POST",
+			path:   "/pipeline",
+			expectedBody: []any{
+				[]any{"SET", "k", "v"},
+				[]any{"GET", "k"},
+			},
+			response: []any{
+				map[string]any{"result": "OK"},
+				map[string]any{"result": "v"},
+			},
+			rawResponse: true,
+			status:      200,
+		},
+	})
+	defer close()
+
+	pipe := u.Pipeline()
+	pipe.Push("SET", "k", "v")
+	pipe.Push("GET", "k")
+
+	res, err := pipe.Exec(context.Background())
+	require.NoError(t, err)
+	require.Len(t, res, 2)
+	// Response is generic map from JSON
+	require.Equal(t, "OK", res[0].(map[string]any)["result"])
+	require.Equal(t, "v", res[1].(map[string]any)["result"])
+}
+
+func TestUnitMulti(t *testing.T) {
+	u, close := setupMockServer(t, []mockHandler{
+		{
+			method: "POST",
+			path:   "/multi-exec",
+			expectedBody: []any{
+				[]any{"SET", "k", "v"},
+				[]any{"INCR", "c"},
+			},
+			response: []any{
+				map[string]any{"result": "OK"},
+				map[string]any{"result": float64(1)},
+			},
+			rawResponse: true,
+			status:      200,
+		},
+	})
+	defer close()
+
+	tx := u.Multi()
+	tx.Push("SET", "k", "v")
+	tx.Push("INCR", "c")
+
+	res, err := tx.Exec(context.Background())
+	require.NoError(t, err)
+	require.Len(t, res, 2)
+	require.Equal(t, float64(1), res[1].(map[string]any)["result"])
+}
+
 func TestUnitKeys(t *testing.T) {
 	u, close := setupMockServer(t, []mockHandler{
 		{
 			method:       "GET",
-			expectedBody: []any{"keys", "*"},
+			path:         "/keys/*",
+			expectedBody: nil,
 			response:     []any{"k1", "k2"},
 			status:       200,
 		},
