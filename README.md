@@ -1,10 +1,10 @@
 # Upstash Redis Go
 
-An HTTP/REST based Redis client built on top of [Upstash REST API](https://docs.upstash.com/features/restapi).
+An HTTP/REST based Redis client built on top of [Upstash REST API](https://upstash.com/docs/redis/features/restapi).
 
-Inspired by [the official TypeScript client](https://github.com/upstash/upstash-redis).
+Inspired by [the official TypeScript client](https://github.com/upstash/redis-js).
 
-See [the list of APIs](https://docs.upstash.com/features/restapi#rest---redis-api-compatibility) supported.
+See [the list of APIs](https://upstash.com/docs/redis/features/restapi#rest-redis-api-compatibility) supported.
 
 [![codecov](https://codecov.io/gh/claywarren/upstash-go/branch/main/graph/badge.svg?token=BCNI6L3TRT)](https://codecov.io/gh/claywarren/upstash-go)
 
