@@ -1,4 +1,4 @@
-package client_test
+package rest_test
 
 import (
 	"context"
@@ -7,12 +7,12 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/claywarren/upstash-go/client"
+	"github.com/claywarren/upstash-go/internal/rest"
 	"github.com/stretchr/testify/require"
 )
 
 func TestNew(t *testing.T) {
-	c := client.New("http://example.com", "http://edge.example.com", "token", false)
+	c := rest.New("http://example.com", "http://edge.example.com", "token", false)
 	require.NotNil(t, c)
 }
 
@@ -29,8 +29,8 @@ func TestRead(t *testing.T) {
 	}))
 	defer server.Close()
 
-	c := client.New(server.URL, "", "token", false)
-	res, err := c.Read(context.Background(), client.Request{
+	c := rest.New(server.URL, "", "token", false)
+	res, err := c.Read(context.Background(), rest.Request{
 		Path: []string{"get", "foo"},
 	})
 	require.NoError(t, err)
@@ -56,8 +56,8 @@ func TestWrite(t *testing.T) {
 	}))
 	defer server.Close()
 
-	c := client.New(server.URL, "", "token", false)
-	res, err := c.Write(context.Background(), client.Request{
+	c := rest.New(server.URL, "", "token", false)
+	res, err := c.Write(context.Background(), rest.Request{
 		Path: []string{"set", "foo", "bar"},
 		Body: "body-content",
 	})
@@ -80,8 +80,8 @@ func TestEdgeUrl(t *testing.T) {
 	}))
 	defer restServer.Close()
 
-	c := client.New(restServer.URL, edgeServer.URL, "token", false)
-	res, err := c.Read(context.Background(), client.Request{
+	c := rest.New(restServer.URL, edgeServer.URL, "token", false)
+	res, err := c.Read(context.Background(), rest.Request{
 		Path: []string{"get", "foo"},
 	})
 	require.NoError(t, err)
@@ -97,8 +97,8 @@ func TestApiError(t *testing.T) {
 	}))
 	defer server.Close()
 
-	c := client.New(server.URL, "", "token", false)
-	_, err := c.Read(context.Background(), client.Request{Path: []string{"get"}})
+	c := rest.New(server.URL, "", "token", false)
+	_, err := c.Read(context.Background(), rest.Request{Path: []string{"get"}})
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "ERR syntax error")
 }
@@ -112,8 +112,8 @@ func TestServerError(t *testing.T) {
 	}))
 	defer server.Close()
 
-	c := client.New(server.URL, "", "token", false)
-	_, err := c.Read(context.Background(), client.Request{Path: []string{"get"}})
+	c := rest.New(server.URL, "", "token", false)
+	_, err := c.Read(context.Background(), rest.Request{Path: []string{"get"}})
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "response returned status code 500")
 }
@@ -128,16 +128,16 @@ func TestResponseErrorField(t *testing.T) {
 	}))
 	defer server.Close()
 
-	c := client.New(server.URL, "", "token", false)
-	_, err := c.Read(context.Background(), client.Request{Path: []string{"get"}})
+	c := rest.New(server.URL, "", "token", false)
+	_, err := c.Read(context.Background(), rest.Request{Path: []string{"get"}})
 	require.Error(t, err)
 	require.Equal(t, "ERR logical error", err.Error())
 }
 
 func TestMarshalError(t *testing.T) {
-	c := client.New("http://example.com", "", "token", false)
+	c := rest.New("http://example.com", "", "token", false)
 	// Pass a channel which cannot be marshaled to JSON
-	_, err := c.Write(context.Background(), client.Request{
+	_, err := c.Write(context.Background(), rest.Request{
 		Body: make(chan int),
 	})
 	require.Error(t, err)
@@ -158,8 +158,8 @@ func TestBase64Decoding(t *testing.T) {
 	}))
 	defer server.Close()
 
-	c := client.New(server.URL, "", "token", true)
-	res, err := c.Read(context.Background(), client.Request{})
+	c := rest.New(server.URL, "", "token", true)
+	res, err := c.Read(context.Background(), rest.Request{})
 	require.NoError(t, err)
 
 	resMap := res.(map[string]any)
@@ -177,8 +177,8 @@ func TestStream(t *testing.T) {
 	}))
 	defer server.Close()
 
-	c := client.New(server.URL, "", "token", false)
-	stream, err := c.Stream(context.Background(), client.Request{Path: []string{"sub"}})
+	c := rest.New(server.URL, "", "token", false)
+	stream, err := c.Stream(context.Background(), rest.Request{Path: []string{"sub"}})
 	require.NoError(t, err)
 	require.NotNil(t, stream)
 

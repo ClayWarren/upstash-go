@@ -1,0 +1,313 @@
+package upstash
+
+import (
+	"context"
+	"fmt"
+	"strconv"
+
+	"github.com/claywarren/upstash-go/internal/rest"
+)
+
+// Append appends a value to a key. If the key does not exist, it is created as an empty string.
+func (u *Upstash) Append(ctx context.Context, key string, value string) (int, error) {
+	res, err := u.client.Write(ctx, rest.Request{
+		Body: []string{"append", key, value},
+	})
+	if err != nil {
+		return 0, err
+	}
+	return int(res.(float64)), nil
+}
+
+// Decr decrements the number stored at key by one.
+func (u *Upstash) Decr(ctx context.Context, key string) (int, error) {
+	res, err := u.client.Write(ctx, rest.Request{
+		Body: []string{"decr", key},
+	})
+	if err != nil {
+		return 0, err
+	}
+	return int(res.(float64)), nil
+}
+
+// DecrBy decrements the number stored at key by the provided decrement value.
+func (u *Upstash) DecrBy(ctx context.Context, key string, decrement int) (int, error) {
+	res, err := u.client.Write(ctx, rest.Request{
+		Body: []string{"decrby", key, fmt.Sprintf("%d", decrement)},
+	})
+	if err != nil {
+		return 0, err
+	}
+	return int(res.(float64)), nil
+}
+
+// Get retrieves the value of a key.
+func (u *Upstash) Get(ctx context.Context, key string) (string, error) {
+	res, err := u.client.Read(ctx, rest.Request{
+		Path: []string{"get", key},
+	})
+	if err != nil {
+		return "", err
+	}
+	if res == nil {
+		return "", nil
+	}
+
+	return res.(string), nil
+}
+
+// GetEx retrieves the value of a key and optionally sets its expiration.
+// https://redis.io/commands/getex
+func (u *Upstash) GetEx(ctx context.Context, key string, options GetEXOptions) (string, error) {
+	body := []string{"getex", key}
+	if options.EX != 0 {
+		body = append(body, "ex", fmt.Sprintf("%d", options.EX))
+	} else if options.PX != 0 {
+		body = append(body, "px", fmt.Sprintf("%d", options.PX))
+	} else if options.EXAT != 0 {
+		body = append(body, "exat", fmt.Sprintf("%d", options.EXAT))
+	} else if options.PXAT != 0 {
+		body = append(body, "pxat", fmt.Sprintf("%d", options.PXAT))
+	} else if options.PERSIST {
+		body = append(body, "persist")
+	}
+
+	res, err := u.client.Write(ctx, rest.Request{
+		Body: body,
+	})
+	if err != nil {
+		return "", err
+	}
+	if res == nil {
+		return "", nil
+	}
+
+	return res.(string), nil
+}
+
+// GetRange returns a substring of the string value stored at a key.
+func (u *Upstash) GetRange(ctx context.Context, key string, start int, end int) (string, error) {
+	res, err := u.client.Read(ctx, rest.Request{
+		Path: []string{"getrange", key, fmt.Sprintf("%d", start), fmt.Sprintf("%d", end)},
+	})
+	if err != nil {
+		return "", err
+	}
+
+	return res.(string), nil
+}
+
+// GetSet atomically sets a key to a value and returns the old value.
+func (u *Upstash) GetSet(ctx context.Context, key string, value string) (string, error) {
+	res, err := u.client.Write(ctx, rest.Request{
+		Body: []string{"getset", key, value},
+	})
+	if err != nil {
+		return "", err
+	}
+
+	return res.(string), nil
+}
+
+// Incr increments the number stored at key by one.
+func (u *Upstash) Incr(ctx context.Context, key string) (int, error) {
+	res, err := u.client.Write(ctx, rest.Request{
+		Body: []string{"incr", key},
+	})
+	if err != nil {
+		return 0, err
+	}
+	return int(res.(float64)), nil
+}
+
+// IncrBy increments the number stored at key by the provided increment value.
+func (u *Upstash) IncrBy(ctx context.Context, key string, increment int) (int, error) {
+	res, err := u.client.Write(ctx, rest.Request{
+		Body: []string{"incrby", key, fmt.Sprintf("%d", increment)},
+	})
+	if err != nil {
+		return 0, err
+	}
+	return int(res.(float64)), nil
+}
+
+// IncrByFloat increments the string representing a floating point number stored at key by the provided increment.
+func (u *Upstash) IncrByFloat(ctx context.Context, key string, increment float64) (float64, error) {
+	res, err := u.client.Write(ctx, rest.Request{
+		Body: []string{"incrbyfloat", key, fmt.Sprintf("%f", increment)},
+	})
+	if err != nil {
+		return 0, err
+	}
+	f, err := strconv.ParseFloat(res.(string), 64)
+	if err != nil {
+		return 0, err
+	}
+	return f, nil
+}
+
+// MGet returns the values of all specified keys.
+func (u *Upstash) MGet(ctx context.Context, keys []string) ([]string, error) {
+	res, err := u.client.Read(ctx, rest.Request{
+		Path: append([]string{"mget"}, keys...),
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	values := make([]string, len(keys))
+	for i, value := range res.([]any) {
+		values[i] = fmt.Sprint(value)
+	}
+
+	return values, err
+}
+
+// MSet sets the given keys to their respective values.
+func (u *Upstash) MSet(ctx context.Context, kvPairs []KV) error {
+	body := []string{"mset"}
+	for _, kv := range kvPairs {
+		body = append(body, kv.Key, kv.Value)
+	}
+
+	_, err := u.client.Write(ctx, rest.Request{
+		Body: body,
+	})
+	return err
+}
+
+// MSetNX sets the given keys to their respective values if none of the keys exist.
+func (u *Upstash) MSetNX(ctx context.Context, kvPairs []KV) (int, error) {
+	body := []string{"msetnx"}
+	for _, kv := range kvPairs {
+		body = append(body, kv.Key, kv.Value)
+	}
+
+	res, err := u.client.Write(ctx, rest.Request{
+		Body: body,
+	})
+	if err != nil {
+		return 0, err
+	}
+	if res == nil {
+		return 0, nil
+	}
+	return int(res.(float64)), nil
+}
+
+// PSetEX sets a key to a value with a provided expiration time in milliseconds.
+func (u *Upstash) PSetEX(ctx context.Context, key string, milliseconds int, value string) error {
+	_, err := u.client.Write(ctx, rest.Request{
+		Body: []string{"psetex", key, fmt.Sprintf("%d", milliseconds), value},
+	})
+	return err
+}
+
+// Set sets a key to hold the string value.
+func (u *Upstash) Set(ctx context.Context, key string, value string) error {
+	_, err := u.client.Write(ctx, rest.Request{
+		Body: []string{"set", key, value},
+	})
+	return err
+}
+
+// SetWithOptions sets a key to hold the string value with additional options.
+func (u *Upstash) SetWithOptions(ctx context.Context, key string, value string, options SetOptions) error {
+	body := []string{"set", key, value}
+	if options.EX != 0 {
+		body = append(body, "ex", fmt.Sprintf("%d", options.EX))
+	} else if options.PX != 0 {
+		body = append(body, "px", fmt.Sprintf("%d", options.PX))
+	}
+	if options.NX {
+		body = append(body, "nx")
+	} else if options.XX {
+		body = append(body, "xx")
+	}
+
+	_, err := u.client.Write(ctx, rest.Request{
+		Body: body,
+	})
+	if err != nil {
+		return fmt.Errorf("error %s: %w", body, err)
+	}
+	return nil
+}
+
+// SetEX sets a key to hold the string value with a provided expiration time in seconds.
+func (u *Upstash) SetEX(ctx context.Context, key string, seconds int, value string) error {
+	_, err := u.client.Write(ctx, rest.Request{
+		Body: []string{"setex", key, fmt.Sprintf("%d", seconds), value},
+	})
+	return err
+}
+
+// SetNX sets a key to hold the string value if the key does not exist.
+func (u *Upstash) SetNX(ctx context.Context, key string, value string) (int, error) {
+	res, err := u.client.Write(ctx, rest.Request{
+		Body: []string{"setnx", key, value},
+	})
+	if err != nil {
+		return 0, err
+	}
+	return int(res.(float64)), nil
+}
+
+// SetRange overwrites part of the string stored at a key, starting at the specified offset.
+func (u *Upstash) SetRange(ctx context.Context, key string, offset int, value string) error {
+	_, err := u.client.Write(ctx, rest.Request{
+		Body: []string{"setrange", key, fmt.Sprintf("%d", offset), value},
+	})
+	return err
+}
+
+// StrLen returns the length of the string value stored at a key.
+func (u *Upstash) StrLen(ctx context.Context, key string) (int, error) {
+	res, err := u.client.Read(ctx, rest.Request{
+		Path: []string{"strlen", key},
+	})
+
+	if err != nil {
+		return 0, err
+	}
+	return int(res.(float64)), nil
+}
+
+// SetBit sets or clears the bit at offset in the string value stored at key.
+func (u *Upstash) SetBit(ctx context.Context, key string, offset int, value int) (int, error) {
+	res, err := u.Send(ctx, "SETBIT", key, offset, value)
+	if err != nil {
+		return 0, err
+	}
+	return int(res.(float64)), nil
+}
+
+// GetBit returns the bit value at offset in the string value stored at key.
+func (u *Upstash) GetBit(ctx context.Context, key string, offset int) (int, error) {
+	res, err := u.Send(ctx, "GETBIT", key, offset)
+	if err != nil {
+		return 0, err
+	}
+	return int(res.(float64)), nil
+}
+
+// BitCount counts the number of set bits (population counting) in a string.
+func (u *Upstash) BitCount(ctx context.Context, key string) (int, error) {
+	res, err := u.Send(ctx, "BITCOUNT", key)
+	if err != nil {
+		return 0, err
+	}
+	return int(res.(float64)), nil
+}
+
+// GetDel gets the value of key and deletes the key.
+func (u *Upstash) GetDel(ctx context.Context, key string) (string, error) {
+	res, err := u.Send(ctx, "GETDEL", key)
+	if err != nil {
+		return "", err
+	}
+	if res == nil {
+		return "", nil
+	}
+	return res.(string), nil
+}

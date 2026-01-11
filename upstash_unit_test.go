@@ -823,6 +823,141 @@ func TestUnitBitmaps(t *testing.T) {
 	require.Equal(t, 5, bc)
 }
 
+func TestUnitGeoMethods(t *testing.T) {
+	u, close := setupMockServer(t, []mockHandler{
+		{
+			method:       "POST",
+			expectedBody: []any{"GEOADD", "sicily", 13.361389, 38.115556, "Palermo"},
+			response:     float64(1),
+			status:       200,
+		},
+		{
+			method:       "POST",
+			expectedBody: []any{"GEODIST", "sicily", "Palermo", "Catania", "km"},
+			response:     "166.27",
+			status:       200,
+		},
+	})
+	defer close()
+
+	ctx := context.Background()
+	res, err := u.GeoAdd(ctx, "sicily", upstash.GeoLocation{Longitude: 13.361389, Latitude: 38.115556, Member: "Palermo"})
+	require.NoError(t, err)
+	require.Equal(t, 1, res)
+
+	dist, err := u.GeoDist(ctx, "sicily", "Palermo", "Catania", "km")
+	require.NoError(t, err)
+	require.Equal(t, 166.27, dist)
+}
+
+func TestUnitJsonMethods(t *testing.T) {
+	u, close := setupMockServer(t, []mockHandler{
+		{
+			method:       "POST",
+			expectedBody: []any{"JSON.SET", "doc", "$", map[string]any{"a": float64(1)}},
+			response:     "OK",
+			status:       200,
+		},
+		{
+			method:       "POST",
+			expectedBody: []any{"JSON.GET", "doc", "$"},
+			response:     []any{map[string]any{"a": float64(1)}},
+			status:       200,
+		},
+	})
+	defer close()
+
+	ctx := context.Background()
+	res, err := u.JsonSet(ctx, "doc", "$", map[string]any{"a": 1})
+	require.NoError(t, err)
+	require.Equal(t, "OK", res)
+
+	val, err := u.JsonGet(ctx, "doc", "$")
+	require.NoError(t, err)
+	require.NotNil(t, val)
+}
+
+func TestUnitStreamMethods(t *testing.T) {
+	u, close := setupMockServer(t, []mockHandler{
+		{
+			method:       "POST",
+			expectedBody: []any{"XADD", "mystream", "*", "f1", "v1"},
+			response:     "1518390000000-0",
+			status:       200,
+		},
+		{
+			method:       "POST",
+			expectedBody: []any{"XLEN", "mystream"},
+			response:     float64(1),
+			status:       200,
+		},
+	})
+	defer close()
+
+	ctx := context.Background()
+	id, err := u.XAdd(ctx, "mystream", "*", map[string]string{"f1": "v1"})
+	require.NoError(t, err)
+	require.Equal(t, "1518390000000-0", id)
+
+	len, err := u.XLen(ctx, "mystream")
+	require.NoError(t, err)
+	require.Equal(t, 1, len)
+}
+
+func TestUnitScriptingMethods(t *testing.T) {
+	u, close := setupMockServer(t, []mockHandler{
+		{
+			method:       "POST",
+			expectedBody: []any{"EVAL", "return ARGV[1]", float64(0), "hello"},
+			response:     "hello",
+			status:       200,
+		},
+		{
+			method:       "POST",
+			expectedBody: []any{"SCRIPT", "LOAD", "return 1"},
+			response:     "sha1hash",
+			status:       200,
+		},
+	})
+	defer close()
+
+	ctx := context.Background()
+	res, err := u.Eval(ctx, "return ARGV[1]", []string{}, "hello")
+	require.NoError(t, err)
+	require.Equal(t, "hello", res)
+
+	sha, err := u.ScriptLoad(ctx, "return 1")
+	require.NoError(t, err)
+	require.Equal(t, "sha1hash", sha)
+}
+
+func TestUnitConnectionMethods(t *testing.T) {
+	u, close := setupMockServer(t, []mockHandler{
+		{
+			method:       "POST",
+			expectedBody: []any{"PING"},
+			response:     "PONG",
+			status:       200,
+		},
+		{
+			method:       "POST",
+			expectedBody: []any{"ECHO", "hello"},
+			response:     "hello",
+			status:       200,
+		},
+	})
+	defer close()
+
+	ctx := context.Background()
+	res, err := u.Ping(ctx)
+	require.NoError(t, err)
+	require.Equal(t, "PONG", res)
+
+	res, err = u.Echo(ctx, "hello")
+	require.NoError(t, err)
+	require.Equal(t, "hello", res)
+}
+
 func TestUnitGenericMethods(t *testing.T) {
 	u, close := setupMockServer(t, []mockHandler{
 		{
