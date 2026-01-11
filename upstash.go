@@ -5,7 +5,7 @@ import (
 	"os"
 	"strconv"
 
-	"github.com/chronark/upstash-go/client"
+	"github.com/claywarren/upstash-go/client"
 )
 
 type Upstash struct {
@@ -73,10 +73,13 @@ func (u *Upstash) Keys(pattern string) ([]string, error) {
 	res, err := u.client.Read(client.Request{
 		Body: []string{"keys", pattern},
 	})
+	if err != nil {
+		return nil, err
+	}
 	if res == nil {
 		return []string{}, nil
 	}
-	return res.([]string), err
+	return res.([]string), nil
 }
 
 // If key already exists and is a string, this command appends the value at
@@ -91,7 +94,10 @@ func (u *Upstash) Append(key string, value string) (int, error) {
 	res, err := u.client.Write(client.Request{
 		Body: []string{"append", key, value},
 	})
-	return int(res.(float64)), err
+	if err != nil {
+		return 0, err
+	}
+	return int(res.(float64)), nil
 }
 
 // Decrements the number stored at key by one. If the key does not exist, it is
@@ -101,7 +107,7 @@ func (u *Upstash) Append(key string, value string) (int, error) {
 //
 // See INCR for extra information on increment/decrement operations.
 //
-// Returns  the value of key after the decrement
+// # Returns  the value of key after the decrement
 //
 // https://redis.io/commands/decr
 func (u *Upstash) Decr(key string) (int, error) {
@@ -109,7 +115,10 @@ func (u *Upstash) Decr(key string) (int, error) {
 	res, err := u.client.Write(client.Request{
 		Body: []string{"decr", key},
 	})
-	return int(res.(float64)), err
+	if err != nil {
+		return 0, err
+	}
+	return int(res.(float64)), nil
 }
 
 // Decrements the number stored at key by decrement. If the key does not
@@ -120,7 +129,7 @@ func (u *Upstash) Decr(key string) (int, error) {
 //
 // See INCR for extra information on increment/decrement operations.
 //
-// Returns the value of key after the decrement
+// # Returns the value of key after the decrement
 //
 // https://redis.io/commands/decrby
 func (u *Upstash) DecrBy(key string, decrement int) (int, error) {
@@ -128,7 +137,10 @@ func (u *Upstash) DecrBy(key string, decrement int) (int, error) {
 	res, err := u.client.Write(client.Request{
 		Body: []string{"decrby", key, fmt.Sprintf("%d", decrement)},
 	})
-	return int(res.(float64)), err
+	if err != nil {
+		return 0, err
+	}
+	return int(res.(float64)), nil
 }
 
 // Get the value of key. If the key does not exist the special value nil is
@@ -208,9 +220,10 @@ func (u *Upstash) GetSet(key string, value string) (string, error) {
 //
 // Redis stores integers in their integer representation, so for string
 // values that actually hold an integer, there is no overhead for storing
-//  the string representation of the integer.
 //
-// Returns the value of key after the increment
+//	the string representation of the integer.
+//
+// # Returns the value of key after the increment
 //
 // https://redis.io/commands/incr
 func (u *Upstash) Incr(key string) (int, error) {
@@ -218,7 +231,10 @@ func (u *Upstash) Incr(key string) (int, error) {
 	res, err := u.client.Write(client.Request{
 		Body: []string{"incr", key},
 	})
-	return int(res.(float64)), err
+	if err != nil {
+		return 0, err
+	}
+	return int(res.(float64)), nil
 }
 
 // Increments the number stored at key by increment. If the key does not
@@ -229,14 +245,17 @@ func (u *Upstash) Incr(key string) (int, error) {
 //
 // See INCR for extra information on increment/decrement operations.
 //
-// Returns the value of key after the increment
+// # Returns the value of key after the increment
 //
 // https://redis.io/commands/incrby
 func (u *Upstash) IncrBy(key string, increment int) (int, error) {
 	res, err := u.client.Write(client.Request{
 		Body: []string{"incrby", key, fmt.Sprintf("%d", increment)},
 	})
-	return int(res.(float64)), err
+	if err != nil {
+		return 0, err
+	}
+	return int(res.(float64)), nil
 
 }
 
@@ -265,7 +284,7 @@ func (u *Upstash) IncrBy(key string, increment int) (int, error) {
 //
 // Returns the value of key after the increment.
 //
-//https://redis.io/commands/incrbyfloat
+// https://redis.io/commands/incrbyfloat
 func (u *Upstash) IncrByFloat(key string, increment float64) (float64, error) {
 	res, err := u.client.Write(client.Request{
 		Body: []string{"incrbyfloat", key, fmt.Sprintf("%f", increment)},
@@ -273,7 +292,7 @@ func (u *Upstash) IncrByFloat(key string, increment float64) (float64, error) {
 	if err != nil {
 		return 0, err
 	}
-	f, err := strconv.ParseFloat(res.(string), 10)
+	f, err := strconv.ParseFloat(res.(string), 64)
 	if err != nil {
 		return 0, err
 	}
@@ -292,9 +311,12 @@ func (u *Upstash) MGet(keys []string) ([]string, error) {
 	res, err := u.client.Read(client.Request{
 		Path: append([]string{"mget"}, keys...),
 	})
+	if err != nil {
+		return nil, err
+	}
 
 	values := make([]string, len(keys))
-	for i, value := range res.([]interface{}) {
+	for i, value := range res.([]any) {
 		values[i] = fmt.Sprint(value)
 	}
 
@@ -308,7 +330,7 @@ func (u *Upstash) MGet(keys []string) ([]string, error) {
 // MSET is atomic, so all given keys are set at once. It is not possible for
 // clients to see that some of the keys were updated while others are unchanged.
 //
-//Returns nil, MSET can't fail.
+// Returns nil, MSET can't fail.
 //
 // https://redis.io/commands/mset
 func (u *Upstash) MSet(kvPairs []KV) error {
@@ -324,7 +346,8 @@ func (u *Upstash) MSet(kvPairs []KV) error {
 }
 
 // Sets the given keys to their respective values. MSETNX will not perform
-//  any operation at all even if just a single key already exists.
+//
+//	any operation at all even if just a single key already exists.
 //
 // Because of this semantic MSETNX can be used in order to set different
 // keys representing different fields of an unique logic object in a way
@@ -348,10 +371,13 @@ func (u *Upstash) MSetNX(kvPairs []KV) (int, error) {
 	res, err := u.client.Write(client.Request{
 		Body: body,
 	})
+	if err != nil {
+		return 0, err
+	}
 	if res == nil {
 		return 0, nil
 	}
-	return int(res.(float64)), err
+	return int(res.(float64)), nil
 }
 
 // PSETEX works exactly like SETEX with the sole difference that the expire
@@ -397,7 +423,7 @@ func (u *Upstash) SetWithOptions(key string, value string, options SetOptions) e
 	})
 	if err != nil {
 
-		return fmt.Errorf("Error %s: %w", body, err)
+		return fmt.Errorf("error %s: %w", body, err)
 	}
 	return nil
 }
@@ -405,8 +431,9 @@ func (u *Upstash) SetWithOptions(key string, value string, options SetOptions) e
 // Set key to hold the string value and set key to timeout after a given
 // number of seconds. This command is equivalent to executing the following
 // commands:
-//      SET mykey value
-//      EXPIRE mykey seconds
+//
+//	SET mykey value
+//	EXPIRE mykey seconds
 //
 // SETEX is atomic, and can be reproduced by using the previous two commands
 // inside an MULTI / EXEC block. It is provided as a faster alternative to
@@ -439,7 +466,10 @@ func (u *Upstash) SetNX(key string, value string) (int, error) {
 	res, err := u.client.Write(client.Request{
 		Body: []string{"setnx", key, value},
 	})
-	return int(res.(float64)), err
+	if err != nil {
+		return 0, err
+	}
+	return int(res.(float64)), nil
 
 }
 
@@ -487,7 +517,10 @@ func (u *Upstash) StrLen(key string) (int, error) {
 		Path: []string{"strlen", key},
 	})
 
-	return int(res.(float64)), err
+	if err != nil {
+		return 0, err
+	}
+	return int(res.(float64)), nil
 }
 
 // Delete all the keys of all the existing databases, not just the currently

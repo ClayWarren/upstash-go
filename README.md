@@ -2,41 +2,90 @@
 
 An HTTP/REST based Redis client built on top of [Upstash REST API](https://docs.upstash.com/features/restapi).
 
-Inspired by [The official typescript client](https://github.com/upstash/upstash-redis)
+Inspired by [the official TypeScript client](https://github.com/upstash/upstash-redis).
 
 See [the list of APIs](https://docs.upstash.com/features/restapi#rest---redis-api-compatibility) supported.
 
-[![codecov](https://codecov.io/gh/chronark/upstash-go/branch/main/graph/badge.svg?token=BCNI6L3TRT)](https://codecov.io/gh/chronark/upstash-go)
+[![codecov](https://codecov.io/gh/claywarren/upstash-go/branch/main/graph/badge.svg?token=BCNI6L3TRT)](https://codecov.io/gh/claywarren/upstash-go)
+
+## Installation
+
+```bash
+go get github.com/claywarren/upstash-go
+```
 
 ## Quick Start
-
-Error handling has been omitted for better readability.
 
 ```go
 package main
 
 import (
 	"fmt"
-	"github.com/chronark/upstash-go"
+	"log"
+	
+	"github.com/claywarren/upstash-go"
 )
 
 func main() {
-    // Get your url and token from https://console.upstash.com/redis/{id}
-    // Or leave empty to load from environment variables
-    options := upstash.Options{
-        Url: "", // env: UPSTASH_REDIS_REST_URL
-        Token:    "", // env: UPSTASH_REDIS_REST_TOKEN
-    }
+	// Initialize the client
+	// You can hardcode credentials or leave them empty to load from environment variables:
+	// UPSTASH_REDIS_REST_URL
+	// UPSTASH_REDIS_REST_TOKEN
+	// UPSTASH_REDIS_EDGE_URL (optional)
+	options := upstash.Options{
+		Url:     "", 
+		Token:   "", 
+	}
 
-    u, _ := upstash.New(options)
+	client, err := upstash.New(options)
+	if err != nil {
+		log.Fatal(err)
+	}
 
-    u.Set("foo", "bar")
+	// Set a key
+	err = client.Set("foo", "bar")
+	if err != nil {
+		log.Fatal(err)
+	}
 
-    value, _ := u.Get("foo")
+	// Get a key
+	value, err := client.Get("foo")
+	if err != nil {
+		log.Fatal(err)
+	}
 
-    fmt.Println(value)
-    // -> "bar"
-
+	fmt.Println(value)
+	// -> "bar"
 }
-
 ```
+
+## Configuration
+
+The `upstash.New` function accepts an `Options` struct for configuration:
+
+```go
+type Options struct {
+	// The Upstash endpoint you want to use
+	// Falls back to `UPSTASH_REDIS_REST_URL` environment variable.
+	Url string
+
+	// The Upstash edge url you want to use (optional)
+	// Falls back to `UPSTASH_REDIS_EDGE_URL` environment variable.
+	EdgeUrl string
+
+	// Requests to the Upstash API must provide an API token.
+	// Falls back to `UPSTASH_REDIS_REST_TOKEN` environment variable.
+	Token string
+
+	// If true, read requests will try to read from edge first
+	ReadFromEdge bool
+}
+```
+
+### Environment Variables
+
+You can configure the client using the following environment variables instead of passing them explicitly:
+
+- `UPSTASH_REDIS_REST_URL`: Your Upstash Redis REST URL.
+- `UPSTASH_REDIS_REST_TOKEN`: Your Upstash Redis REST Token.
+- `UPSTASH_REDIS_EDGE_URL`: (Optional) Your Upstash Global Database URL for lower latency reads.

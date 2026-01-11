@@ -1,7 +1,7 @@
 package main
 
 import (
-	"github.com/chronark/upstash-go"
+	"github.com/claywarren/upstash-go"
 )
 
 func main() {

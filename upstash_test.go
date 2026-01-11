@@ -1,12 +1,12 @@
 package upstash_test
 
 import (
+	"fmt"
+	"os"
 	"testing"
 	"time"
 
-	"fmt"
-
-	"github.com/chronark/upstash-go"
+	"github.com/claywarren/upstash-go"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 )
@@ -14,7 +14,7 @@ import (
 func TestKeys(t *testing.T) {
 	key := uuid.NewString()
 	value := uuid.NewString()
-	u, _ := upstash.New(upstash.Options{})
+	u := createUpstash(t)
 
 	err := u.Set(key, value)
 	require.NoError(t, err)
@@ -29,7 +29,7 @@ func TestAppend(t *testing.T) {
 	key := uuid.NewString()
 	value := uuid.NewString()
 	addition := uuid.NewString()
-	u, _ := upstash.New(upstash.Options{})
+	u := createUpstash(t)
 
 	err := u.Set(key, value)
 	require.NoError(t, err)
@@ -46,7 +46,7 @@ func TestAppend(t *testing.T) {
 func TestDecr(t *testing.T) {
 	key := uuid.NewString()
 	value := "1"
-	u, _ := upstash.New(upstash.Options{})
+	u := createUpstash(t)
 
 	err := u.Set(key, value)
 	require.NoError(t, err)
@@ -60,7 +60,7 @@ func TestDecr(t *testing.T) {
 func TestDecrBy(t *testing.T) {
 	key := uuid.NewString()
 	value := "5"
-	u, _ := upstash.New(upstash.Options{})
+	u := createUpstash(t)
 
 	err := u.Set(key, value)
 	require.NoError(t, err)
@@ -74,7 +74,7 @@ func TestDecrBy(t *testing.T) {
 func TestGet(t *testing.T) {
 	key := uuid.NewString()
 	value := uuid.NewString()
-	u, _ := upstash.New(upstash.Options{})
+	u := createUpstash(t)
 
 	err := u.Set(key, value)
 	require.NoError(t, err)
@@ -85,13 +85,13 @@ func TestGet(t *testing.T) {
 }
 
 func TestGetWithEmptyKey(t *testing.T) {
-	u, _ := upstash.New(upstash.Options{})
+	u := createUpstash(t)
 	_, err := u.Get("")
 	require.Error(t, err)
 }
 
 func TestGetWithNonExistentKey(t *testing.T) {
-	u, _ := upstash.New(upstash.Options{})
+	u := createUpstash(t)
 	got, err := u.Get(uuid.NewString())
 	require.NoError(t, err)
 	require.Equal(t, "", got)
@@ -100,7 +100,7 @@ func TestGetWithNonExistentKey(t *testing.T) {
 func TestGetRange(t *testing.T) {
 	key := uuid.NewString()
 	value := "abcde"
-	u, _ := upstash.New(upstash.Options{})
+	u := createUpstash(t)
 
 	err := u.Set(key, value)
 	require.NoError(t, err)
@@ -114,7 +114,7 @@ func TestGetSet(t *testing.T) {
 	key := uuid.NewString()
 	value := uuid.NewString()
 	value2 := uuid.NewString()
-	u, _ := upstash.New(upstash.Options{})
+	u := createUpstash(t)
 
 	err := u.Set(key, value)
 	require.NoError(t, err)
@@ -132,7 +132,7 @@ func TestGetSet(t *testing.T) {
 func TestIncr(t *testing.T) {
 	key := uuid.NewString()
 	value := "1"
-	u, _ := upstash.New(upstash.Options{})
+	u := createUpstash(t)
 
 	err := u.Set(key, value)
 	require.NoError(t, err)
@@ -145,7 +145,7 @@ func TestIncr(t *testing.T) {
 func TestIncrBy(t *testing.T) {
 	key := uuid.NewString()
 	value := "5"
-	u, _ := upstash.New(upstash.Options{})
+	u := createUpstash(t)
 
 	err := u.Set(key, value)
 	require.NoError(t, err)
@@ -158,7 +158,7 @@ func TestIncrBy(t *testing.T) {
 func TestIncrByFloat(t *testing.T) {
 	key := uuid.NewString()
 	value := "5"
-	u, _ := upstash.New(upstash.Options{})
+	u := createUpstash(t)
 
 	err := u.Set(key, value)
 	require.NoError(t, err)
@@ -174,7 +174,7 @@ func TestMGet(t *testing.T) {
 	key2 := uuid.NewString()
 	value1 := uuid.NewString()
 	value2 := uuid.NewString()
-	u, _ := upstash.New(upstash.Options{})
+	u := createUpstash(t)
 
 	err := u.Set(key1, value1)
 	require.NoError(t, err)
@@ -193,7 +193,7 @@ func TestMSet(t *testing.T) {
 	key2 := uuid.NewString()
 	value1 := uuid.NewString()
 	value2 := uuid.NewString()
-	u, _ := upstash.New(upstash.Options{})
+	u := createUpstash(t)
 
 	err := u.MSet([]upstash.KV{{Key: key1, Value: value1}, {Key: key2, Value: value2}})
 	require.NoError(t, err)
@@ -214,7 +214,7 @@ func TestMSetNX(t *testing.T) {
 	key2 := uuid.NewString()
 	value1 := uuid.NewString()
 	value2 := uuid.NewString()
-	u, _ := upstash.New(upstash.Options{})
+	u := createUpstash(t)
 
 	allSet, err := u.MSetNX([]upstash.KV{{Key: key1, Value: value1}, {Key: key2, Value: value2}})
 	require.NoError(t, err)
@@ -236,7 +236,7 @@ func TestMSetNXWithExistingKeys(t *testing.T) {
 	key2 := uuid.NewString()
 	value1 := uuid.NewString()
 	value2 := uuid.NewString()
-	u, _ := upstash.New(upstash.Options{})
+	u := createUpstash(t)
 
 	err := u.Set(key1, value1)
 	require.NoError(t, err)
@@ -249,7 +249,7 @@ func TestMSetNXWithExistingKeys(t *testing.T) {
 func TestPSetEX(t *testing.T) {
 	key := uuid.NewString()
 	value := uuid.NewString()
-	u, _ := upstash.New(upstash.Options{})
+	u := createUpstash(t)
 
 	err := u.PSetEX(key, 1000, value)
 	require.NoError(t, err)
@@ -269,7 +269,7 @@ func TestPSetEX(t *testing.T) {
 func TestSet(t *testing.T) {
 	key := uuid.NewString()
 	value := uuid.NewString()
-	u, _ := upstash.New(upstash.Options{})
+	u := createUpstash(t)
 
 	err := u.Set(key, value)
 	require.NoError(t, err)
@@ -282,7 +282,7 @@ func TestSet(t *testing.T) {
 func TestSetWithOptions_EX(t *testing.T) {
 	key := uuid.NewString()
 	value := uuid.NewString()
-	u, _ := upstash.New(upstash.Options{})
+	u := createUpstash(t)
 
 	err := u.SetWithOptions(key, value, upstash.SetOptions{
 		EX: 2,
@@ -301,7 +301,7 @@ func TestSetWithOptions_EX(t *testing.T) {
 func TestSetWithOptions_PX(t *testing.T) {
 	key := uuid.NewString()
 	value := uuid.NewString()
-	u, _ := upstash.New(upstash.Options{})
+	u := createUpstash(t)
 
 	err := u.SetWithOptions(key, value, upstash.SetOptions{
 		PX: 2000,
@@ -320,7 +320,7 @@ func TestSetWithOptions_PX(t *testing.T) {
 func TestSetWithOptions_NX(t *testing.T) {
 	key := uuid.NewString()
 	value := uuid.NewString()
-	u, _ := upstash.New(upstash.Options{})
+	u := createUpstash(t)
 
 	err := u.SetWithOptions(key, value, upstash.SetOptions{
 		NX: true,
@@ -341,7 +341,7 @@ func TestSetWithOptions_XX(t *testing.T) {
 	key := uuid.NewString()
 	value := uuid.NewString()
 	value2 := uuid.NewString()
-	u, _ := upstash.New(upstash.Options{})
+	u := createUpstash(t)
 
 	err := u.SetWithOptions(key, value, upstash.SetOptions{
 		XX: true,
@@ -367,7 +367,7 @@ func TestSetWithOptions_XX(t *testing.T) {
 func TestSetEX(t *testing.T) {
 	key := uuid.NewString()
 	value := uuid.NewString()
-	u, _ := upstash.New(upstash.Options{})
+	u := createUpstash(t)
 
 	err := u.SetEX(key, 1, value)
 	require.NoError(t, err)
@@ -386,7 +386,7 @@ func TestSetEX(t *testing.T) {
 func TestSetNX(t *testing.T) {
 	key := uuid.NewString()
 	value := uuid.NewString()
-	u, _ := upstash.New(upstash.Options{})
+	u := createUpstash(t)
 
 	set, err := u.SetNX(key, value)
 	require.NoError(t, err)
@@ -397,7 +397,7 @@ func TestSetNX(t *testing.T) {
 func TestSetNXWithExistingKey(t *testing.T) {
 	key := uuid.NewString()
 	value := uuid.NewString()
-	u, _ := upstash.New(upstash.Options{})
+	u := createUpstash(t)
 
 	err := u.Set(key, value)
 	require.NoError(t, err)
@@ -412,7 +412,7 @@ func TestSetRange(t *testing.T) {
 	key := uuid.NewString()
 	value := uuid.NewString()
 	overwrite := "HELLO"
-	u, _ := upstash.New(upstash.Options{})
+	u := createUpstash(t)
 
 	err := u.Set(key, value)
 	require.NoError(t, err)
@@ -429,7 +429,7 @@ func TestSetRange(t *testing.T) {
 func TestStrLen(t *testing.T) {
 	key := uuid.NewString()
 	value := uuid.NewString()
-	u, _ := upstash.New(upstash.Options{})
+	u := createUpstash(t)
 
 	err := u.Set(key, value)
 	require.NoError(t, err)
@@ -439,4 +439,13 @@ func TestStrLen(t *testing.T) {
 
 	require.Equal(t, 36, res)
 
+}
+
+func createUpstash(t *testing.T) upstash.Upstash {
+	if os.Getenv("UPSTASH_REDIS_REST_URL") == "" || os.Getenv("UPSTASH_REDIS_REST_TOKEN") == "" {
+		t.Skip("Skipping integration test: UPSTASH_REDIS_REST_URL or UPSTASH_REDIS_REST_TOKEN not set")
+	}
+	u, err := upstash.New(upstash.Options{})
+	require.NoError(t, err)
+	return u
 }

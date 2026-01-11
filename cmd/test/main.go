@@ -2,7 +2,7 @@ package main
 
 import (
 	"fmt"
-	"github.com/chronark/upstash-go"
+	"github.com/claywarren/upstash-go"
 )
 
 func main() {
