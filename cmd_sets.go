@@ -212,3 +212,20 @@ func (u *Upstash) SMIsMember(ctx context.Context, key string, members ...string)
 	}
 	return result, nil
 }
+
+// SInterCard returns the cardinality of the set resulting from the intersection of all the given sets.
+func (u *Upstash) SInterCard(ctx context.Context, keys []string, limit ...int) (int, error) {
+	args := make([]any, 0, 1+len(keys)+len(limit)*2)
+	args = append(args, len(keys))
+	for _, k := range keys {
+		args = append(args, k)
+	}
+	if len(limit) > 0 {
+		args = append(args, "LIMIT", limit[0])
+	}
+	res, err := u.Send(ctx, "SINTERCARD", args...)
+	if err != nil {
+		return 0, err
+	}
+	return int(res.(float64)), nil
+}

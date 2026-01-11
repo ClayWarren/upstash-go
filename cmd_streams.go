@@ -145,3 +145,62 @@ func (u *Upstash) XTrim(ctx context.Context, key string, strategy string, thresh
 	}
 	return int(res.(float64)), nil
 }
+
+// XAutoClaim claims pending stream entries that match the criteria.
+func (u *Upstash) XAutoClaim(ctx context.Context, key, group, consumer string, minIdleTime int64, start string, count ...int) (any, error) {
+	args := []any{key, group, consumer, minIdleTime, start}
+	if len(count) > 0 {
+		args = append(args, "COUNT", count[0])
+	}
+	return u.Send(ctx, "XAUTOCLAIM", args...)
+}
+
+// XClaim changes the ownership of pending stream entries.
+func (u *Upstash) XClaim(ctx context.Context, key, group, consumer string, minIdleTime int64, ids ...string) (any, error) {
+	args := make([]any, 0, 4+len(ids))
+	args = append(args, key, group, consumer, minIdleTime)
+	for _, id := range ids {
+		args = append(args, id)
+	}
+	return u.Send(ctx, "XCLAIM", args...)
+}
+
+// XInfo returns various information about a stream.
+func (u *Upstash) XInfo(ctx context.Context, subcommand string, key string, args ...any) (any, error) {
+	fullArgs := make([]any, 0, 2+len(args))
+	fullArgs = append(fullArgs, subcommand, key)
+	fullArgs = append(fullArgs, args...)
+	return u.Send(ctx, "XINFO", fullArgs...)
+}
+
+// XPending returns information about pending messages in a consumer group.
+func (u *Upstash) XPending(ctx context.Context, key, group string, args ...any) (any, error) {
+	fullArgs := make([]any, 0, 2+len(args))
+	fullArgs = append(fullArgs, key, group)
+	fullArgs = append(fullArgs, args...)
+	return u.Send(ctx, "XPENDING", fullArgs...)
+}
+
+// XReadGroup reads data from one or multiple streams using a consumer group.
+func (u *Upstash) XReadGroup(ctx context.Context, options XReadGroupOptions, streams map[string]string) (any, error) {
+	args := []any{"GROUP", options.Group, options.Consumer}
+	if options.Count > 0 {
+		args = append(args, "COUNT", options.Count)
+	}
+	if options.Block >= 0 {
+		args = append(args, "BLOCK", options.Block)
+	}
+	if options.NoAck {
+		args = append(args, "NOACK")
+	}
+	args = append(args, "STREAMS")
+	keys := make([]any, 0, len(streams))
+	ids := make([]any, 0, len(streams))
+	for k, v := range streams {
+		keys = append(keys, k)
+		ids = append(ids, v)
+	}
+	args = append(args, keys...)
+	args = append(args, ids...)
+	return u.Send(ctx, "XREADGROUP", args...)
+}

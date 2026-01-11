@@ -169,6 +169,61 @@ func TestBase64Decoding(t *testing.T) {
 	require.Equal(t, "OK", resMap["ok"])
 }
 
+func TestRetries(t *testing.T) {
+	attempts := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		attempts++
+		if attempts < 3 {
+			// Simulate network error by closing connection (which results in error from httpClient.Do)
+			hj, _ := w.(http.Hijacker)
+			conn, _, _ := hj.Hijack()
+			_ = conn.Close()
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+		_ = json.NewEncoder(w).Encode(map[string]any{"result": "success"})
+	}))
+	defer server.Close()
+
+	c := rest.New(server.URL, "", "token", false)
+	res, err := c.Read(context.Background(), rest.Request{})
+	require.NoError(t, err)
+	require.Equal(t, "success", res)
+	require.Equal(t, 3, attempts)
+}
+
+func TestRetryFailure(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Always simulate network error
+		hj, _ := w.(http.Hijacker)
+		conn, _, _ := hj.Hijack()
+		_ = conn.Close()
+	}))
+	defer server.Close()
+
+	c := rest.New(server.URL, "", "token", false)
+	_, err := c.Read(context.Background(), rest.Request{})
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "unable to perform request after retries")
+}
+
+func TestContextCancelledDuringRetry(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		hj, _ := w.(http.Hijacker)
+		conn, _, _ := hj.Hijack()
+		_ = conn.Close()
+	}))
+	defer server.Close()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel() // cancel immediately
+
+	c := rest.New(server.URL, "", "token", false)
+	_, err := c.Read(ctx, rest.Request{})
+	require.Error(t, err)
+	require.Equal(t, context.Canceled, err)
+}
+
 func TestStream(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		require.Equal(t, "text/event-stream", r.Header.Get("Accept"))

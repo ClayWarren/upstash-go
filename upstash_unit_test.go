@@ -823,6 +823,348 @@ func TestUnitBitmaps(t *testing.T) {
 	require.Equal(t, 5, bc)
 }
 
+func TestUnitCompletionist_Group1(t *testing.T) {
+	u, close := setupMockServer(t, []mockHandler{
+		{method: "POST", expectedBody: []any{"COPY", "s", "d"}, response: float64(1), status: 200},
+		{method: "POST", expectedBody: []any{"DUMP", "k"}, response: "dump", status: 200},
+		{method: "POST", expectedBody: []any{"EXPIREAT", "k", float64(12345)}, response: float64(1), status: 200},
+		{method: "POST", expectedBody: []any{"PERSIST", "k"}, response: float64(1), status: 200},
+		{method: "POST", expectedBody: []any{"RANDOMKEY"}, response: "rk", status: 200},
+		{method: "POST", expectedBody: []any{"RENAME", "k1", "k2"}, response: "OK", status: 200},
+		{method: "POST", expectedBody: []any{"TOUCH", "k"}, response: float64(1), status: 200},
+		{method: "POST", expectedBody: []any{"TYPE", "k"}, response: "string", status: 200},
+		{method: "POST", expectedBody: []any{"UNLINK", "k"}, response: float64(1), status: 200},
+		{method: "POST", expectedBody: []any{"HEXISTS", "h", "f"}, response: float64(1), status: 200},
+		{method: "POST", expectedBody: []any{"HINCRBYFLOAT", "h", "f", 1.1}, response: "2.2", status: 200},
+		{method: "POST", expectedBody: []any{"HKEYS", "h"}, response: []any{"f1"}, status: 200},
+		{method: "POST", expectedBody: []any{"HMSET", "h", "f1", "v1"}, response: "OK", status: 200},
+		{method: "POST", expectedBody: []any{"LINDEX", "l", float64(0)}, response: "v", status: 200},
+		{method: "POST", expectedBody: []any{"LPUSHX", "l", "v"}, response: float64(1), status: 200},
+		{method: "POST", expectedBody: []any{"LREM", "l", float64(1), "v"}, response: float64(1), status: 200},
+		{method: "POST", expectedBody: []any{"LTRIM", "l", float64(0), float64(1)}, response: "OK", status: 200},
+		{method: "POST", expectedBody: []any{"SDIFF", "k1", "k2"}, response: []any{"v"}, status: 200},
+		{method: "POST", expectedBody: []any{"SINTER", "k1", "k2"}, response: []any{"v"}, status: 200},
+		{method: "POST", expectedBody: []any{"SMISMEMBER", "s", "m1"}, response: []any{float64(1)}, status: 200},
+		{method: "POST", expectedBody: []any{"ZCOUNT", "zs", float64(0), float64(10)}, response: float64(5), status: 200},
+		{method: "POST", expectedBody: []any{"ZREMRANGEBYRANK", "zs", float64(0), float64(1)}, response: float64(2), status: 200},
+	})
+	defer close()
+
+	ctx := context.Background()
+	_, _ = u.Copy(ctx, "s", "d")
+	_, _ = u.Dump(ctx, "k")
+	_, _ = u.ExpireAt(ctx, "k", 12345)
+	_, _ = u.Persist(ctx, "k")
+	_, _ = u.RandomKey(ctx)
+	_ = u.Rename(ctx, "k1", "k2")
+	_, _ = u.Touch(ctx, "k")
+	_, _ = u.Type(ctx, "k")
+	_, _ = u.Unlink(ctx, "k")
+	_, _ = u.HExists(ctx, "h", "f")
+	_, _ = u.HIncrByFloat(ctx, "h", "f", 1.1)
+	_, _ = u.HKeys(ctx, "h")
+	_, _ = u.HMSet(ctx, "h", map[string]string{"f1": "v1"})
+	_, _ = u.LIndex(ctx, "l", 0)
+	_, _ = u.LPushX(ctx, "l", "v")
+	_, _ = u.LRem(ctx, "l", 1, "v")
+	_, _ = u.LTrim(ctx, "l", 0, 1)
+	_, _ = u.SDiff(ctx, "k1", "k2")
+	_, _ = u.SInter(ctx, "k1", "k2")
+	_, _ = u.SMIsMember(ctx, "s", "m1")
+	_, _ = u.ZCount(ctx, "zs", 0, 10)
+	_, _ = u.ZRemRangeByRank(ctx, "zs", 0, 1)
+}
+
+func TestUnitCompletionist_Group2(t *testing.T) {
+	u, close := setupMockServer(t, []mockHandler{
+		{method: "POST", expectedBody: []any{"GEOHASH", "sicily", "Palermo"}, response: []any{"sqc8bzn0u10"}, status: 200},
+		{method: "POST", expectedBody: []any{"GEORADIUSBYMEMBER", "sicily", "Palermo", float64(100), "km"}, response: []any{"Palermo"}, status: 200},
+		{method: "POST", expectedBody: []any{"JSON.CLEAR", "doc", "$"}, response: float64(1), status: 200},
+		{method: "POST", expectedBody: []any{"JSON.OBJKEYS", "doc", "$"}, response: []any{"a"}, status: 200},
+		{method: "POST", expectedBody: []any{"JSON.TOGGLE", "doc", "$.bool"}, response: []any{true}, status: 200},
+		{method: "POST", expectedBody: []any{"XACK", "s", "g", "id1"}, response: float64(1), status: 200},
+		{method: "POST", expectedBody: []any{"XTRIM", "s", "MAXLEN", float64(10)}, response: float64(1), status: 200},
+		{method: "POST", expectedBody: []any{"DBSIZE"}, response: float64(100), status: 200},
+		{method: "POST", expectedBody: []any{"TIME"}, response: []any{"1518390000", "123456"}, status: 200},
+		{method: "POST", expectedBody: []any{"LASTSAVE"}, response: float64(1518390000), status: 200},
+	})
+	defer close()
+
+	ctx := context.Background()
+	_, _ = u.GeoHash(ctx, "sicily", "Palermo")
+	_, _ = u.GeoRadiusByMember(ctx, "sicily", "Palermo", 100, "km")
+	_, _ = u.JsonClear(ctx, "doc", "$")
+	_, _ = u.JsonObjKeys(ctx, "doc", "$")
+	_, _ = u.JsonToggle(ctx, "doc", "$.bool")
+	_, _ = u.XAck(ctx, "s", "g", "id1")
+	_, _ = u.XTrim(ctx, "s", "MAXLEN", 10)
+	_, _ = u.DBSize(ctx)
+	_, _ = u.Time(ctx)
+	_, _ = u.LastSave(ctx)
+}
+
+func TestUnitCompletionist_Group3(t *testing.T) {
+	u, close := setupMockServer(t, []mockHandler{
+		{method: "POST", expectedBody: []any{"MOVE", "k", float64(1)}, response: float64(1), status: 200},
+		{method: "POST", expectedBody: []any{"RESTORE", "k", float64(0), "v"}, response: "OK", status: 200},
+		{method: "POST", expectedBody: []any{"ZINTER", float64(2), "k1", "k2"}, response: []any{"v"}, status: 200},
+		{method: "POST", expectedBody: []any{"ZMPOP", float64(1), "k", "MIN"}, response: []any{"v"}, status: 200},
+		{method: "POST", expectedBody: []any{"COMMAND"}, response: []any{"set", "get"}, status: 200},
+		{method: "POST", expectedBody: []any{"FCALL", "f", float64(1), "k", "a"}, response: "res", status: 200},
+		{method: "POST", expectedBody: []any{"FUNCTION", "LOAD", "p"}, response: "L", status: 200},
+		{method: "POST", expectedBody: []any{"FUNCTION", "LIST"}, response: []any{"L"}, status: 200},
+	})
+	defer close()
+
+	ctx := context.Background()
+	_, _ = u.Move(ctx, "k", 1)
+	_, _ = u.Restore(ctx, "k", 0, "v", false)
+	_, _ = u.ZInter(ctx, 2, []string{"k1", "k2"})
+	_, _ = u.ZMPop(ctx, 1, []string{"k"}, "MIN")
+	_, _ = u.Command(ctx)
+	_, _ = u.FCall(ctx, "f", []string{"k"}, "a")
+	_, _ = u.FunctionLoad(ctx, "p", false)
+	_, _ = u.FunctionList(ctx)
+}
+
+func TestUnitCoverageFinalPush(t *testing.T) {
+	u, close := setupMockServer(t, []mockHandler{
+		{method: "POST", expectedBody: []any{"HSETNX", "h", "f", "v"}, response: float64(1), status: 200},
+		{method: "POST", expectedBody: []any{"HSTRLEN", "h", "f"}, response: float64(5), status: 200},
+		{method: "POST", expectedBody: []any{"HVALS", "h"}, response: []any{"v1"}, status: 200},
+		{method: "POST", expectedBody: []any{"LINSERT", "l", "BEFORE", "p", "e"}, response: float64(1), status: 200},
+		{method: "POST", expectedBody: []any{"LMOVE", "s", "d", "LEFT", "RIGHT"}, response: "v", status: 200},
+		{method: "POST", expectedBody: []any{"LPOS", "l", "e"}, response: float64(0), status: 200},
+		{method: "POST", expectedBody: []any{"LSET", "l", float64(0), "v"}, response: "OK", status: 200},
+		{method: "POST", expectedBody: []any{"RPOPLPUSH", "s", "d"}, response: "v", status: 200},
+		{method: "POST", expectedBody: []any{"SDIFFSTORE", "d", "k1", "k2"}, response: float64(1), status: 200},
+		{method: "POST", expectedBody: []any{"SINTERSTORE", "d", "k1", "k2"}, response: float64(1), status: 200},
+		{method: "POST", expectedBody: []any{"SMOVE", "s", "d", "m"}, response: float64(1), status: 200},
+		{method: "POST", expectedBody: []any{"SUNION", "k1", "k2"}, response: []any{"v"}, status: 200},
+		{method: "POST", expectedBody: []any{"SUNIONSTORE", "d", "k1", "k2"}, response: float64(1), status: 200},
+		{method: "POST", expectedBody: []any{"ZDIFF", float64(2), "k1", "k2"}, response: []any{"v"}, status: 200},
+		{method: "POST", expectedBody: []any{"ZLEXCOUNT", "zs", "a", "b"}, response: float64(1), status: 200},
+		{method: "POST", expectedBody: []any{"ZMPOP", float64(1), "k", "MAX", "COUNT", float64(1)}, response: []any{"v"}, status: 200},
+		{method: "POST", expectedBody: []any{"ZREMRANGEBYLEX", "zs", "a", "b"}, response: float64(1), status: 200},
+		{method: "POST", expectedBody: []any{"ZREMRANGEBYSCORE", "zs", float64(0), float64(10)}, response: float64(1), status: 200},
+		{method: "POST", expectedBody: []any{"ZREVRANGE", "zs", float64(0), float64(-1)}, response: []any{"v"}, status: 200},
+		{method: "POST", expectedBody: []any{"ZREVRANK", "zs", "m"}, response: float64(0), status: 200},
+		{method: "POST", expectedBody: []any{"ZUNIONSTORE", "d", float64(2), "k1", "k2"}, response: float64(1), status: 200},
+		{method: "POST", expectedBody: []any{"ZREVRANGEBYLEX", "zs", "max", "min", "LIMIT", float64(0), float64(1)}, response: []any{"v"}, status: 200},
+		{method: "POST", expectedBody: []any{"ZREVRANGEBYSCORE", "zs", "max", "min", "LIMIT", float64(0), float64(1)}, response: []any{"v"}, status: 200},
+		{method: "POST", expectedBody: []any{"BLPOP", "k", float64(1)}, response: []any{"k", "v"}, status: 200},
+		{method: "POST", expectedBody: []any{"BRPOP", "k", float64(1)}, response: []any{"k", "v"}, status: 200},
+		{method: "POST", expectedBody: []any{"ZINCRBY", "zs", 1.1, "m"}, response: "2.2", status: 200},
+		{method: "POST", expectedBody: []any{"ZMSCORE", "zs", "m1"}, response: []any{"1.1"}, status: 200},
+		{method: "POST", expectedBody: []any{"ZPOPMAX", "zs", float64(1)}, response: []any{"m1"}, status: 200},
+		{method: "POST", expectedBody: []any{"ZPOPMIN", "zs", float64(1)}, response: []any{"m1"}, status: 200},
+		{method: "POST", expectedBody: []any{"BZPOPMAX", "k", float64(1)}, response: []any{"k", "m", "1.1"}, status: 200},
+		{method: "POST", expectedBody: []any{"BZPOPMIN", "k", float64(1)}, response: []any{"k", "m", "1.1"}, status: 200},
+		{method: "POST", expectedBody: []any{"ZUNION", float64(2), "k1", "k2"}, response: []any{"v"}, status: 200},
+	})
+	defer close()
+
+	ctx := context.Background()
+	_, _ = u.HSetNX(ctx, "h", "f", "v")
+	_, _ = u.HStrLen(ctx, "h", "f")
+	_, _ = u.HVals(ctx, "h")
+	_, _ = u.LInsert(ctx, "l", "BEFORE", "p", "e")
+	_, _ = u.LMove(ctx, "s", "d", "LEFT", "RIGHT")
+	_, _ = u.LPos(ctx, "l", "e")
+	_, _ = u.LSet(ctx, "l", 0, "v")
+	_, _ = u.RPopLPush(ctx, "s", "d")
+	_, _ = u.SDiffStore(ctx, "d", "k1", "k2")
+	_, _ = u.SInterStore(ctx, "d", "k1", "k2")
+	_, _ = u.SMove(ctx, "s", "d", "m")
+	_, _ = u.SUnion(ctx, "k1", "k2")
+	_, _ = u.SUnionStore(ctx, "d", "k1", "k2")
+	_, _ = u.ZDiff(ctx, 2, []string{"k1", "k2"})
+	_, _ = u.ZLexCount(ctx, "zs", "a", "b")
+	_, _ = u.ZMPop(ctx, 1, []string{"k"}, "MAX", 1)
+	_, _ = u.ZRemRangeByLex(ctx, "zs", "a", "b")
+	_, _ = u.ZRemRangeByScore(ctx, "zs", 0, 10)
+	_, _ = u.ZRevRange(ctx, "zs", 0, -1)
+	_, _ = u.ZRevRank(ctx, "zs", "m")
+	_, _ = u.ZUnionStore(ctx, "d", 2, []string{"k1", "k2"})
+	_, _ = u.ZRevRangeByLex(ctx, "zs", "max", "min", 1)
+	_, _ = u.ZRevRangeByScore(ctx, "zs", "max", "min", 1)
+	_, _ = u.BLPop(ctx, 1, "k")
+	_, _ = u.BRPop(ctx, 1, "k")
+	_, _ = u.ZIncrBy(ctx, "zs", 1.1, "m")
+	_, _ = u.ZMScore(ctx, "zs", "m1")
+	_, _ = u.ZPopMax(ctx, "zs", 1)
+	_, _ = u.ZPopMin(ctx, "zs", 1)
+	_, _ = u.BZPopMax(ctx, 1, "k")
+	_, _ = u.BZPopMin(ctx, 1, "k")
+	_, _ = u.ZUnion(ctx, 2, []string{"k1", "k2"})
+}
+
+func TestUnitJsonStreamCompletionist(t *testing.T) {
+	u, close := setupMockServer(t, []mockHandler{
+		{method: "POST", expectedBody: []any{"JSON.MGET", "k1", "k2", "$"}, response: []any{map[string]any{"a": float64(1)}}, status: 200},
+		{method: "POST", expectedBody: []any{"JSON.TYPE", "doc", "$"}, response: "object", status: 200},
+		{method: "POST", expectedBody: []any{"JSON.ARRAPPEND", "doc", "$", float64(1)}, response: []any{float64(1)}, status: 200},
+		{method: "POST", expectedBody: []any{"JSON.ARRLEN", "doc", "$"}, response: []any{float64(1)}, status: 200},
+		{method: "POST", expectedBody: []any{"JSON.FORGET", "doc", "$"}, response: float64(1), status: 200},
+		{method: "POST", expectedBody: []any{"JSON.MERGE", "doc", "$", map[string]any{"b": float64(2)}}, response: "OK", status: 200},
+		{method: "POST", expectedBody: []any{"JSON.NUMINCRBY", "doc", "$", float64(1)}, response: "2", status: 200},
+		{method: "POST", expectedBody: []any{"JSON.OBJLEN", "doc", "$"}, response: []any{float64(1)}, status: 200},
+		{method: "POST", expectedBody: []any{"JSON.STRAPPEND", "doc", "$", "v"}, response: []any{float64(2)}, status: 200},
+		{method: "POST", expectedBody: []any{"JSON.STRLEN", "doc", "$"}, response: []any{float64(2)}, status: 200},
+		{method: "POST", expectedBody: []any{"XREVRANGE", "s", "+", "-", "COUNT", float64(10)}, response: []any{[]any{"id", []any{"f", "v"}}}, status: 200},
+		{method: "POST", expectedBody: []any{"XDEL", "s", "id1"}, response: float64(1), status: 200},
+		{method: "POST", expectedBody: []any{"XGROUP", "CREATE", "s", "g", "$"}, response: "OK", status: 200},
+		{method: "POST", expectedBody: []any{"XREAD", "COUNT", float64(1), "BLOCK", float64(0), "STREAMS", "s1", "$"}, response: []any{}, status: 200},
+		{method: "POST", expectedBody: []any{"FCALL_RO", "f", float64(1), "k", "a"}, response: "res", status: 200},
+		{method: "POST", expectedBody: []any{"FUNCTION", "DELETE", "L"}, response: "OK", status: 200},
+		{method: "POST", expectedBody: []any{"FUNCTION", "FLUSH"}, response: "OK", status: 200},
+		{method: "POST", expectedBody: []any{"FUNCTION", "STATS"}, response: map[string]any{}, status: 200},
+	})
+	defer close()
+
+	ctx := context.Background()
+	_, _ = u.JsonMGet(ctx, "$", "k1", "k2")
+	_, _ = u.JsonType(ctx, "doc", "$")
+	_, _ = u.JsonArrAppend(ctx, "doc", "$", 1)
+	_, _ = u.JsonArrLen(ctx, "doc", "$")
+	_, _ = u.JsonForget(ctx, "doc", "$")
+	_, _ = u.JsonMerge(ctx, "doc", "$", map[string]any{"b": 2})
+	_, _ = u.JsonNumIncrBy(ctx, "doc", "$", 1)
+	_, _ = u.JsonObjLen(ctx, "doc", "$")
+	_, _ = u.JsonStrAppend(ctx, "doc", "$", "v")
+	_, _ = u.JsonStrLen(ctx, "doc", "$")
+	_, _ = u.XRevRange(ctx, "s", "+", "-", 10)
+	_, _ = u.XDel(ctx, "s", "id1")
+	_, _ = u.XGroup(ctx, "CREATE", "s", "g", "$")
+	_, _ = u.XRead(ctx, 1, 0, map[string]string{"s1": "$"})
+	_, _ = u.FCallRO(ctx, "f", []string{"k"}, "a")
+	_, _ = u.FunctionDelete(ctx, "L")
+	_, _ = u.FunctionFlush(ctx)
+	_, _ = u.FunctionStats(ctx)
+}
+
+func TestUnitParityFinalBoss(t *testing.T) {
+	u, close := setupMockServer(t, []mockHandler{
+		{method: "POST", expectedBody: []any{"JSON.ARRINDEX", "k", "$", float64(1)}, response: []any{float64(0)}, status: 200},
+		{method: "POST", expectedBody: []any{"JSON.ARRINSERT", "k", "$", float64(0), float64(1)}, response: []any{float64(1)}, status: 200},
+		{method: "POST", expectedBody: []any{"JSON.ARRPOP", "k", "$"}, response: []any{float64(1)}, status: 200},
+		{method: "POST", expectedBody: []any{"JSON.ARRTRIM", "k", "$", float64(0), float64(1)}, response: []any{float64(1)}, status: 200},
+		{method: "POST", expectedBody: []any{"JSON.NUMMULTBY", "k", "$", float64(2)}, response: "2", status: 200},
+		{method: "POST", expectedBody: []any{"XAUTOCLAIM", "k", "g", "c", float64(100), "0"}, response: []any{}, status: 200},
+		{method: "POST", expectedBody: []any{"XCLAIM", "k", "g", "c", float64(100), "id1"}, response: []any{}, status: 200},
+		{method: "POST", expectedBody: []any{"XINFO", "STREAM", "k"}, response: []any{}, status: 200},
+		{method: "POST", expectedBody: []any{"XPENDING", "k", "g"}, response: []any{}, status: 200},
+		{method: "POST", expectedBody: []any{"XREADGROUP", "GROUP", "g", "c", "BLOCK", float64(0), "STREAMS", "s1", ">"}, response: []any{}, status: 200},
+		{method: "POST", expectedBody: []any{"WAIT", float64(1), float64(100)}, response: float64(1), status: 200},
+	})
+	defer close()
+
+	ctx := context.Background()
+	_, _ = u.JsonArrIndex(ctx, "k", "$", 1)
+	_, _ = u.JsonArrInsert(ctx, "k", "$", 0, 1)
+	_, _ = u.JsonArrPop(ctx, "k", "$")
+	_, _ = u.JsonArrTrim(ctx, "k", "$", 0, 1)
+	_, _ = u.JsonNumMultBy(ctx, "k", "$", 2)
+	_, _ = u.XAutoClaim(ctx, "k", "g", "c", 100, "0")
+	_, _ = u.XClaim(ctx, "k", "g", "c", 100, "id1")
+	_, _ = u.XInfo(ctx, "STREAM", "k")
+	_, _ = u.XPending(ctx, "k", "g")
+	_, _ = u.XReadGroup(ctx, upstash.XReadGroupOptions{Group: "g", Consumer: "c", Block: 0}, map[string]string{"s1": ">"})
+	_, _ = u.Wait(ctx, 1, 100)
+}
+
+func TestUnitCoverageElitePush(t *testing.T) {
+	u, close := setupMockServer(t, []mockHandler{
+		{method: "POST", expectedBody: []any{"PEXPIRE", "k", float64(1000)}, response: float64(1), status: 200},
+		{method: "POST", expectedBody: []any{"PTTL", "k"}, response: float64(500), status: 200},
+		{method: "POST", expectedBody: []any{"MIGRATE", "h", "p", "k", "db", float64(100), "COPY", "REPLACE", "KEYS", "k1"}, response: "OK", status: 200},
+		{method: "POST", expectedBody: []any{"OBJECT", "encoding", "k"}, response: "raw", status: 200},
+		{method: "POST", expectedBody: []any{"SORT", "k", "ALPHA"}, response: []any{"a"}, status: 200},
+		{method: "POST", expectedBody: []any{"HINCRBY", "h", "f", float64(1)}, response: float64(2), status: 200},
+		{method: "POST", expectedBody: []any{"HMGET", "h", "f1"}, response: []any{"v1"}, status: 200},
+		{method: "POST", expectedBody: []any{"JSON.DEL", "doc", "$"}, response: float64(1), status: 200},
+		{method: "POST", expectedBody: []any{"LRANGE", "l", float64(0), float64(-1)}, response: []any{"v1"}, status: 200},
+		{method: "POST", expectedBody: []any{"RPUSHX", "l", "v1"}, response: float64(1), status: 200},
+		{method: "POST", expectedBody: []any{"ZRANK", "zs", "m"}, response: float64(0), status: 200},
+		{method: "POST", expectedBody: []any{"XRANGE", "s", "-", "+", "COUNT", float64(1)}, response: []any{}, status: 200},
+		{method: "POST", expectedBody: []any{"GETDEL", "k"}, response: "v", status: 200},
+		{method: "POST", expectedBody: []any{"INFO", "cpu"}, response: "info", status: 200},
+		{method: "POST", expectedBody: []any{"ROLE"}, response: []any{"master"}, status: 200},
+		{method: "POST", expectedBody: []any{"RENAMENX", "k1", "k2"}, response: float64(1), status: 200},
+		{method: "POST", expectedBody: []any{"GEOPOS", "sicily", "Palermo"}, response: []any{[]any{"13.36", "38.11"}}, status: 200},
+		{method: "POST", expectedBody: []any{"SPOP", "s", float64(1)}, response: []any{"m1"}, status: 200},
+		{method: "POST", expectedBody: []any{"SRANDMEMBER", "s", float64(1)}, response: []any{"m1"}, status: 200},
+		{method: "POST", expectedBody: []any{"EVALSHA", "sha", float64(1), "k", "a"}, response: "res", status: 200},
+		{method: "GET", path: "/monitor", response: "OK", status: 200},
+	})
+	defer close()
+
+	ctx := context.Background()
+	_, _ = u.PExpire(ctx, "k", 1000)
+	_, _ = u.PTtl(ctx, "k")
+	_, _ = u.Migrate(ctx, "h", "p", "k", "db", 100, true, true, "k1")
+	_, _ = u.Object(ctx, "encoding", "k")
+	_, _ = u.Sort(ctx, "k", "ALPHA")
+	_, _ = u.HIncrBy(ctx, "h", "f", 1)
+	_, _ = u.HMGet(ctx, "h", "f1")
+	_, _ = u.JsonDel(ctx, "doc", "$")
+	_, _ = u.LRange(ctx, "l", 0, -1)
+	_, _ = u.RPushX(ctx, "l", "v1")
+	_, _ = u.ZRank(ctx, "zs", "m")
+	_, _ = u.XRange(ctx, "s", "-", "+", 1)
+	_, _ = u.GetDel(ctx, "k")
+	_, _ = u.Info(ctx, "cpu")
+	_, _ = u.Role(ctx)
+	_, _ = u.RenameNX(ctx, "k1", "k2")
+	_, _ = u.GeoPos(ctx, "sicily", "Palermo")
+	_, _ = u.SPop(ctx, "s", 1)
+	_, _ = u.SRandMember(ctx, "s", 1)
+	_, _ = u.EvalSha(ctx, "sha", []string{"k"}, "a")
+	_, _ = u.Monitor(ctx)
+}
+
+func TestUnitAbsoluteFinalParity(t *testing.T) {
+	u, close := setupMockServer(t, []mockHandler{
+		{method: "POST", expectedBody: []any{"GEOSEARCH", "k", "FROMMEMBER", "m", "BYRADIUS", float64(100), "km"}, response: []any{"m1"}, status: 200},
+		{method: "POST", expectedBody: []any{"GEOSEARCHSTORE", "d", "s", "FROMMEMBER", "m", "BYRADIUS", float64(100), "km"}, response: float64(1), status: 200},
+		{method: "POST", expectedBody: []any{"PUBSUB", "CHANNELS"}, response: []any{"ch1"}, status: 200},
+		{method: "POST", expectedBody: []any{"UNSUBSCRIBE", "ch1"}, response: []any{"unsubscribed", "ch1", float64(0)}, status: 200},
+		{method: "POST", expectedBody: []any{"WATCH", "k1"}, response: "OK", status: 200},
+		{method: "POST", expectedBody: []any{"UNWATCH"}, response: "OK", status: 200},
+	})
+	defer close()
+
+	ctx := context.Background()
+	_, _ = u.GeoSearch(ctx, "k", "FROMMEMBER", "m", "BYRADIUS", 100, "km")
+	_, _ = u.GeoSearchStore(ctx, "d", "s", "FROMMEMBER", "m", "BYRADIUS", 100, "km")
+	_, _ = u.PubSub(ctx, "CHANNELS")
+	_, _ = u.Unsubscribe(ctx, "ch1")
+	_, _ = u.Watch(ctx, "k1")
+	_, _ = u.Unwatch(ctx)
+
+	tx := u.Tx()
+	tx.Push("SET", "k", "v")
+	tx.Discard()
+	txRes, _ := tx.Exec(ctx)
+	require.Len(t, txRes, 0)
+}
+
+func TestUnitBitmapsCompletionist(t *testing.T) {
+	u, close := setupMockServer(t, []mockHandler{
+		{method: "POST", expectedBody: []any{"BITOP", "AND", "dest", "k1", "k2"}, response: float64(1), status: 200},
+		{method: "POST", expectedBody: []any{"BITPOS", "k1", float64(1), float64(0), float64(10)}, response: float64(5), status: 200},
+		{method: "POST", expectedBody: []any{"BITFIELD", "k1", "GET", "u8", float64(0)}, response: []any{float64(1)}, status: 200},
+		{method: "POST", expectedBody: []any{"BITFIELD_RO", "k1", "GET", "u8", float64(0)}, response: []any{float64(1)}, status: 200},
+	})
+	defer close()
+
+	ctx := context.Background()
+	_, _ = u.BitOp(ctx, "AND", "dest", "k1", "k2")
+	_, _ = u.BitPos(ctx, "k1", 1, 0, 10)
+	_, _ = u.BitField(ctx, "k1", "GET", "u8", 0)
+	_, _ = u.BitFieldRO(ctx, "k1", "GET", "u8", 0)
+}
+
 func TestUnitGeoMethods(t *testing.T) {
 	u, close := setupMockServer(t, []mockHandler{
 		{

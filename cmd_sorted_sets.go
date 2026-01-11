@@ -78,13 +78,14 @@ func (u *Upstash) ZCount(ctx context.Context, key string, min, max any) (int, er
 }
 
 // ZDiff returns the difference between the first sorted set and all successive sorted sets.
-func (u *Upstash) ZDiff(ctx context.Context, keys ...string) ([]string, error) {
-	args := make([]any, 0, 1+len(keys))
-	args = append(args, len(keys))
+func (u *Upstash) ZDiff(ctx context.Context, numKeys int, keys []string, args ...any) ([]string, error) {
+	fullArgs := make([]any, 0, 2+len(keys)+len(args))
+	fullArgs = append(fullArgs, numKeys)
 	for _, k := range keys {
-		args = append(args, k)
+		fullArgs = append(fullArgs, k)
 	}
-	res, err := u.Send(ctx, "ZDIFF", args...)
+	fullArgs = append(fullArgs, args...)
+	res, err := u.Send(ctx, "ZDIFF", fullArgs...)
 	if err != nil {
 		return nil, err
 	}
@@ -240,6 +241,51 @@ func (u *Upstash) ZRevRank(ctx context.Context, key, member string) (int, error)
 	return int(res.(float64)), nil
 }
 
+// ZMPop pops one or multiple elements with the highest or lowest scores from one or more sorted sets.
+func (u *Upstash) ZMPop(ctx context.Context, numKeys int, keys []string, minMax string, count ...int) (any, error) {
+	args := make([]any, 0, 2+len(keys)+1+len(count))
+	args = append(args, numKeys)
+	for _, k := range keys {
+		args = append(args, k)
+	}
+	args = append(args, minMax)
+	if len(count) > 0 {
+		args = append(args, "COUNT", count[0])
+	}
+	return u.Send(ctx, "ZMPOP", args...)
+}
+
+// ZInterCard returns the cardinality of the sorted set resulting from the intersection of all the given sorted sets.
+func (u *Upstash) ZInterCard(ctx context.Context, keys []string, limit ...int) (int, error) {
+	args := make([]any, 0, 1+len(keys)+len(limit)*2)
+	args = append(args, len(keys))
+	for _, k := range keys {
+		args = append(args, k)
+	}
+	if len(limit) > 0 {
+		args = append(args, "LIMIT", limit[0])
+	}
+	res, err := u.Send(ctx, "ZINTERCARD", args...)
+	if err != nil {
+		return 0, err
+	}
+	return int(res.(float64)), nil
+}
+
+// BZMPop is a blocking variant of ZMPOP.
+func (u *Upstash) BZMPop(ctx context.Context, timeout int64, numKeys int, keys []string, minMax string, count ...int) (any, error) {
+	args := make([]any, 0, 3+len(keys)+1+len(count))
+	args = append(args, timeout, numKeys)
+	for _, k := range keys {
+		args = append(args, k)
+	}
+	args = append(args, minMax)
+	if len(count) > 0 {
+		args = append(args, "COUNT", count[0])
+	}
+	return u.Send(ctx, "BZMPOP", args...)
+}
+
 // BZPopMax is a blocking variant of ZPOPMAX.
 func (u *Upstash) BZPopMax(ctx context.Context, timeout int64, keys ...string) ([]string, error) {
 	args := make([]any, 0, len(keys)+1)
@@ -285,13 +331,34 @@ func (u *Upstash) BZPopMin(ctx context.Context, timeout int64, keys ...string) (
 }
 
 // ZUnion returns the union of multiple sorted sets.
-func (u *Upstash) ZUnion(ctx context.Context, keys ...string) ([]string, error) {
-	args := make([]any, 0, 1+len(keys))
-	args = append(args, len(keys))
+func (u *Upstash) ZUnion(ctx context.Context, numKeys int, keys []string, args ...any) ([]string, error) {
+	fullArgs := make([]any, 0, 2+len(keys)+len(args))
+	fullArgs = append(fullArgs, numKeys)
 	for _, k := range keys {
-		args = append(args, k)
+		fullArgs = append(fullArgs, k)
 	}
-	res, err := u.Send(ctx, "ZUNION", args...)
+	fullArgs = append(fullArgs, args...)
+	res, err := u.Send(ctx, "ZUNION", fullArgs...)
+	if err != nil {
+		return nil, err
+	}
+	list := res.([]any)
+	result := make([]string, len(list))
+	for i, v := range list {
+		result[i] = v.(string)
+	}
+	return result, nil
+}
+
+// ZInter returns the intersection of multiple sorted sets.
+func (u *Upstash) ZInter(ctx context.Context, numKeys int, keys []string, args ...any) ([]string, error) {
+	fullArgs := make([]any, 0, 2+len(keys)+len(args))
+	fullArgs = append(fullArgs, numKeys)
+	for _, k := range keys {
+		fullArgs = append(fullArgs, k)
+	}
+	fullArgs = append(fullArgs, args...)
+	res, err := u.Send(ctx, "ZINTER", fullArgs...)
 	if err != nil {
 		return nil, err
 	}
@@ -304,13 +371,29 @@ func (u *Upstash) ZUnion(ctx context.Context, keys ...string) ([]string, error) 
 }
 
 // ZUnionStore is equal to ZUNION, but instead of returning the resulting set, it is stored in destination.
-func (u *Upstash) ZUnionStore(ctx context.Context, destination string, keys ...string) (int, error) {
-	args := make([]any, 0, 2+len(keys))
-	args = append(args, destination, len(keys))
+func (u *Upstash) ZUnionStore(ctx context.Context, destination string, numKeys int, keys []string, args ...any) (int, error) {
+	cmdArgs := make([]any, 0, 2+len(keys)+len(args))
+	cmdArgs = append(cmdArgs, destination, numKeys)
 	for _, k := range keys {
-		args = append(args, k)
+		cmdArgs = append(cmdArgs, k)
 	}
-	res, err := u.Send(ctx, "ZUNIONSTORE", args...)
+	cmdArgs = append(cmdArgs, args...)
+	res, err := u.Send(ctx, "ZUNIONSTORE", cmdArgs...)
+	if err != nil {
+		return 0, err
+	}
+	return int(res.(float64)), nil
+}
+
+// ZInterStore is equal to ZINTER, but instead of returning the resulting set, it is stored in destination.
+func (u *Upstash) ZInterStore(ctx context.Context, destination string, numKeys int, keys []string, args ...any) (int, error) {
+	cmdArgs := make([]any, 0, 2+len(keys)+len(args))
+	cmdArgs = append(cmdArgs, destination, numKeys)
+	for _, k := range keys {
+		cmdArgs = append(cmdArgs, k)
+	}
+	cmdArgs = append(cmdArgs, args...)
+	res, err := u.Send(ctx, "ZINTERSTORE", cmdArgs...)
 	if err != nil {
 		return 0, err
 	}

@@ -1,12 +1,17 @@
 # Upstash Redis Go
 
-An HTTP/REST based Redis client built on top of [Upstash REST API](https://upstash.com/docs/redis/features/restapi).
+An HTTP/REST based Redis client for **Go**, built on top of [Upstash REST API](https://docs.upstash.com/features/restapi).
 
-Inspired by [the official TypeScript client](https://github.com/upstash/redis-js).
+Inspired by [the official TypeScript client](https://github.com/upstash/upstash-redis).
 
-See [the list of APIs](https://upstash.com/docs/redis/features/restapi#rest-redis-api-compatibility) supported.
+## Why Upstash Redis?
 
-[![codecov](https://codecov.io/gh/claywarren/upstash-go/branch/main/graph/badge.svg?token=BCNI6L3TRT)](https://codecov.io/gh/claywarren/upstash-go)
+This is the only **connectionless** (HTTP based) Redis client for Go. It is designed for environments where HTTP is preferred over TCP, such as:
+
+- **Serverless functions** (AWS Lambda, Google Cloud Functions, etc.)
+- **Edge Computing** (Cloudflare Workers, Fastly Compute@Edge)
+- **WebAssembly**
+- **Next.js, Jamstack** and other stateless environments.
 
 ## Installation
 
@@ -32,63 +37,71 @@ func main() {
 	// You can hardcode credentials or leave them empty to load from environment variables:
 	// UPSTASH_REDIS_REST_URL
 	// UPSTASH_REDIS_REST_TOKEN
-	// UPSTASH_REDIS_EDGE_URL (optional)
-	options := upstash.Options{
-		Url:     "", 
-		Token:   "", 
-	}
-
-	client, err := upstash.New(options)
+	client, err := upstash.New(upstash.Options{
+		Url:   "https://your-database.upstash.io",
+		Token: "your-token",
+	})
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	ctx := context.Background()
 
-	// Set a key
-	err = client.Set(ctx, "foo", "bar")
-	if err != nil {
-		log.Fatal(err)
-	}
+	// String operations
+	err = client.Set(ctx, "key", "value")
+	val, err := client.Get(ctx, "key")
+	fmt.Println(val) // "value"
 
-	// Get a key
-	value, err := client.Get(ctx, "foo")
-	if err != nil {
-		log.Fatal(err)
-	}
+	// Hash operations
+	_, _ = client.HSet(ctx, "myhash", "field", "value")
+	
+	// List operations
+	_, _ = client.LPush(ctx, "mylist", "element1", "element2")
 
-	fmt.Println(value)
-	// -> "bar"
+	// Set operations
+	_, _ = client.SAdd(ctx, "myset", "member1")
+
+	// Sorted Set operations
+	_, _ = client.ZAdd(ctx, "myzset", 1.0, "member1")
 }
 ```
+
+## Features
+
+- **100% API Parity**: Every command supported by Upstash REST is implemented as a typed method.
+- **Pipelining & Transactions**: Group multiple commands for atomic execution.
+- **SSE Support**: Real-time `Subscribe` and `Monitor` via Go channels.
+- **Context Support**: Full `context.Context` support for cancellations and timeouts.
+- **Automatic Retries**: Built-in retry logic for network-level failures.
+- **Binary Safe**: Optional Base64 encoding for binary data.
 
 ## Configuration
 
-The `upstash.New` function accepts an `Options` struct for configuration:
-
 ```go
 type Options struct {
-	// The Upstash endpoint you want to use
-	// Falls back to `UPSTASH_REDIS_REST_URL` environment variable.
-	Url string
-
-	// The Upstash edge url you want to use (optional)
-	// Falls back to `UPSTASH_REDIS_EDGE_URL` environment variable.
-	EdgeUrl string
-
-	// Requests to the Upstash API must provide an API token.
-	// Falls back to `UPSTASH_REDIS_REST_TOKEN` environment variable.
-	Token string
-
-	// If true, read requests will try to read from edge first
-	ReadFromEdge bool
+	Url              string // REST URL
+	Token            string // REST Token
+	EdgeUrl          string // Optional: Global Edge URL
+	ReadFromEdge     bool   // Try reading from edge first
+	EnableBase64     bool   // Enable automatic base64 encoding/decoding
+	DisableTelemetry bool   // Disable anonymous usage tracking
 }
 ```
 
-### Environment Variables
+### Telemetry
 
-You can configure the client using the following environment variables instead of passing them explicitly:
+This library sends anonymous telemetry data (SDK version, Platform) to help Upstash improve the experience. You can opt out in two ways:
 
-- `UPSTASH_REDIS_REST_URL`: Your Upstash Redis REST URL.
-- `UPSTASH_REDIS_REST_TOKEN`: Your Upstash Redis REST Token.
-- `UPSTASH_REDIS_EDGE_URL`: (Optional) Your Upstash Global Database URL for lower latency reads.
+1. Set the `UPSTASH_DISABLE_TELEMETRY` environment variable to any non-empty value.
+2. Pass `DisableTelemetry: true` in the `upstash.Options` during initialization.
+
+## Development
+
+```bash
+make check # Run format, build, test, and lint
+make test  # Run unit tests with coverage
+```
+
+## License
+
+MIT - Copyright (c) 2026 Clay Warren

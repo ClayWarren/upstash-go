@@ -57,3 +57,12 @@ func (u *Upstash) LastSave(ctx context.Context) (int64, error) {
 	}
 	return int64(res.(float64)), nil
 }
+
+// Command returns information about all Redis commands.
+func (u *Upstash) Command(ctx context.Context) ([]any, error) {
+	res, err := u.Send(ctx, "COMMAND")
+	if err != nil {
+		return nil, err
+	}
+	return res.([]any), nil
+}

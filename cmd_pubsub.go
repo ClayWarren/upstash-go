@@ -46,6 +46,24 @@ func (u *Upstash) Monitor(ctx context.Context) (<-chan string, error) {
 	return out, nil
 }
 
+// PubSub is an introspection command that allows to inspect the state of the Pub/Sub subsystem.
+func (u *Upstash) PubSub(ctx context.Context, subcommand string, args ...any) (any, error) {
+	fullArgs := make([]any, 0, 1+len(args))
+	fullArgs = append(fullArgs, subcommand)
+	fullArgs = append(fullArgs, args...)
+	return u.Send(ctx, "PUBSUB", fullArgs...)
+}
+
+// Unsubscribe unsubscribes the client from the given channels, or from all of them if none is given.
+// Note: In REST API context, this might not have the same effect as in TCP, but added for parity.
+func (u *Upstash) Unsubscribe(ctx context.Context, channels ...string) (any, error) {
+	args := make([]any, 0, len(channels))
+	for _, c := range channels {
+		args = append(args, c)
+	}
+	return u.Send(ctx, "UNSUBSCRIBE", args...)
+}
+
 func (u *Upstash) streamReader(ctx context.Context, stream io.ReadCloser, out chan<- string) {
 	defer func() {
 		_ = stream.Close()

@@ -206,3 +206,70 @@ func (u *Upstash) JsonStrLen(ctx context.Context, key, path string) ([]int, erro
 func (u *Upstash) JsonToggle(ctx context.Context, key, path string) (any, error) {
 	return u.Send(ctx, "JSON.TOGGLE", key, path)
 }
+
+// JsonArrIndex returns the index of the first occurrence of a JSON value in an array.
+func (u *Upstash) JsonArrIndex(ctx context.Context, key, path string, value any, startEnd ...int) ([]int, error) {
+	args := []any{key, path, value}
+	for _, se := range startEnd {
+		args = append(args, se)
+	}
+	res, err := u.Send(ctx, "JSON.ARRINDEX", args...)
+	if err != nil {
+		return nil, err
+	}
+	return u.parseIntSlice(res), nil
+}
+
+// JsonArrInsert inserts JSON values into an array at a given index.
+func (u *Upstash) JsonArrInsert(ctx context.Context, key, path string, index int, values ...any) ([]int, error) {
+	args := make([]any, 0, 3+len(values))
+	args = append(args, key, path, index)
+	args = append(args, values...)
+	res, err := u.Send(ctx, "JSON.ARRINSERT", args...)
+	if err != nil {
+		return nil, err
+	}
+	return u.parseIntSlice(res), nil
+}
+
+// JsonArrPop removes and returns an element from an array.
+func (u *Upstash) JsonArrPop(ctx context.Context, key, path string, index ...int) ([]any, error) {
+	args := []any{key, path}
+	if len(index) > 0 {
+		args = append(args, index[0])
+	}
+	res, err := u.Send(ctx, "JSON.ARRPOP", args...)
+	if err != nil {
+		return nil, err
+	}
+	return res.([]any), nil
+}
+
+// JsonArrTrim trims an array to contain only the specified range of elements.
+func (u *Upstash) JsonArrTrim(ctx context.Context, key, path string, start, stop int) ([]int, error) {
+	res, err := u.Send(ctx, "JSON.ARRTRIM", key, path, start, stop)
+	if err != nil {
+		return nil, err
+	}
+	return u.parseIntSlice(res), nil
+}
+
+// JsonNumMultBy multiplies a number in a JSON document by a given value.
+func (u *Upstash) JsonNumMultBy(ctx context.Context, key, path string, value float64) (string, error) {
+	res, err := u.Send(ctx, "JSON.NUMMULTBY", key, path, value)
+	if err != nil {
+		return "", err
+	}
+	return fmt.Sprint(res), nil
+}
+
+func (u *Upstash) parseIntSlice(res any) []int {
+	list := res.([]any)
+	result := make([]int, len(list))
+	for i, v := range list {
+		if v != nil {
+			result[i] = int(v.(float64))
+		}
+	}
+	return result
+}

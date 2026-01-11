@@ -88,3 +88,23 @@ func (u *Upstash) GeoRadiusByMember(ctx context.Context, key, member string, rad
 	}
 	return result, nil
 }
+
+// GeoSearch returns the members of a geospatial index, which are within a maximum distance from a member or a point.
+func (u *Upstash) GeoSearch(ctx context.Context, key string, args ...any) (any, error) {
+	fullArgs := make([]any, 0, 1+len(args))
+	fullArgs = append(fullArgs, key)
+	fullArgs = append(fullArgs, args...)
+	return u.Send(ctx, "GEOSEARCH", fullArgs...)
+}
+
+// GeoSearchStore is equal to GEOSEARCH, but stores the result in a destination key.
+func (u *Upstash) GeoSearchStore(ctx context.Context, destination, source string, args ...any) (int, error) {
+	fullArgs := make([]any, 0, 2+len(args))
+	fullArgs = append(fullArgs, destination, source)
+	fullArgs = append(fullArgs, args...)
+	res, err := u.Send(ctx, "GEOSEARCHSTORE", fullArgs...)
+	if err != nil {
+		return 0, err
+	}
+	return int(res.(float64)), nil
+}

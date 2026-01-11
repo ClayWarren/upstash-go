@@ -236,3 +236,39 @@ func (u *Upstash) RPushX(ctx context.Context, key string, values ...string) (int
 	}
 	return int(res.(float64)), nil
 }
+
+// LCS returns the longest common subsequence of two strings.
+func (u *Upstash) LCS(ctx context.Context, key1, key2 string, args ...any) (any, error) {
+	fullArgs := make([]any, 0, 2+len(args))
+	fullArgs = append(fullArgs, key1, key2)
+	fullArgs = append(fullArgs, args...)
+	return u.Send(ctx, "LCS", fullArgs...)
+}
+
+// LMPop pops one or multiple elements with the highest or lowest scores from one or more lists.
+func (u *Upstash) LMPop(ctx context.Context, numKeys int, keys []string, where string, count ...int) (any, error) {
+	args := make([]any, 0, 2+len(keys)+1+len(count))
+	args = append(args, numKeys)
+	for _, k := range keys {
+		args = append(args, k)
+	}
+	args = append(args, where)
+	if len(count) > 0 {
+		args = append(args, "COUNT", count[0])
+	}
+	return u.Send(ctx, "LMPOP", args...)
+}
+
+// BLMPop is a blocking variant of LMPOP.
+func (u *Upstash) BLMPop(ctx context.Context, timeout int64, numKeys int, keys []string, where string, count ...int) (any, error) {
+	args := make([]any, 0, 3+len(keys)+1+len(count))
+	args = append(args, timeout, numKeys)
+	for _, k := range keys {
+		args = append(args, k)
+	}
+	args = append(args, where)
+	if len(count) > 0 {
+		args = append(args, "COUNT", count[0])
+	}
+	return u.Send(ctx, "BLMPOP", args...)
+}

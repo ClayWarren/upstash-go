@@ -248,6 +248,32 @@ func (u *Upstash) Sort(ctx context.Context, key string, args ...any) (any, error
 	return u.Send(ctx, "SORT", fullArgs...)
 }
 
+// SortRO is the read-only variant of SORT.
+func (u *Upstash) SortRO(ctx context.Context, key string, args ...any) (any, error) {
+	fullArgs := make([]any, 0, 1+len(args))
+	fullArgs = append(fullArgs, key)
+	fullArgs = append(fullArgs, args...)
+	return u.Send(ctx, "SORT_RO", fullArgs...)
+}
+
+// ExpireTime returns the absolute Unix timestamp (in seconds) at which the given key will expire.
+func (u *Upstash) ExpireTime(ctx context.Context, key string) (int64, error) {
+	res, err := u.Send(ctx, "EXPIRETIME", key)
+	if err != nil {
+		return 0, err
+	}
+	return int64(res.(float64)), nil
+}
+
+// PExpireTime returns the absolute Unix timestamp (in milliseconds) at which the given key will expire.
+func (u *Upstash) PExpireTime(ctx context.Context, key string) (int64, error) {
+	res, err := u.Send(ctx, "PEXPIRETIME", key)
+	if err != nil {
+		return 0, err
+	}
+	return int64(res.(float64)), nil
+}
+
 // Wait blocks the current client until all the previous write commands are successfully transferred and acknowledged by at least the specified number of replicas.
 func (u *Upstash) Wait(ctx context.Context, numReplicas int, timeout int64) (int, error) {
 	res, err := u.Send(ctx, "WAIT", numReplicas, timeout)
@@ -255,4 +281,26 @@ func (u *Upstash) Wait(ctx context.Context, numReplicas int, timeout int64) (int
 		return 0, err
 	}
 	return int(res.(float64)), nil
+}
+
+// Move moves a key from the currently selected database to the specified destination database.
+func (u *Upstash) Move(ctx context.Context, key string, db int) (int, error) {
+	res, err := u.Send(ctx, "MOVE", key, db)
+	if err != nil {
+		return 0, err
+	}
+	return int(res.(float64)), nil
+}
+
+// Restore creates a key associated with a value that is obtained by deserializing the provided serialized value.
+func (u *Upstash) Restore(ctx context.Context, key string, ttl int64, serializedValue string, replace bool) (string, error) {
+	args := []any{key, ttl, serializedValue}
+	if replace {
+		args = append(args, "REPLACE")
+	}
+	res, err := u.Send(ctx, "RESTORE", args...)
+	if err != nil {
+		return "", err
+	}
+	return res.(string), nil
 }

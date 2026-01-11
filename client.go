@@ -32,6 +32,10 @@ type Options struct {
 	// EnableBase64 specifies if strings in the response should be base64 encoded.
 	// The client will automatically decode these back to raw strings.
 	EnableBase64 bool
+
+	// DisableTelemetry specifies if telemetry data should be sent.
+	// Falls back to `UPSTASH_DISABLE_TELEMETRY` environment variable.
+	DisableTelemetry bool
 }
 
 // New creates a new Upstash client with the provided options.
@@ -47,8 +51,14 @@ func New(options Options) (Upstash, error) {
 		options.Token = os.Getenv("UPSTASH_REDIS_REST_TOKEN")
 	}
 
+	if !options.DisableTelemetry {
+		if os.Getenv("UPSTASH_DISABLE_TELEMETRY") != "" {
+			options.DisableTelemetry = true
+		}
+	}
+
 	return Upstash{
-		client: rest.New(options.Url, options.EdgeUrl, options.Token, options.EnableBase64),
+		client: rest.New(options.Url, options.EdgeUrl, options.Token, options.EnableBase64, options.DisableTelemetry),
 	}, nil
 }
 
@@ -92,6 +102,9 @@ func (p *Pipeline) Push(command string, args ...any) {
 // Exec executes the queued commands in the pipeline.
 // Returns an array of results corresponding to the commands.
 func (p *Pipeline) Exec(ctx context.Context) ([]any, error) {
+	if len(p.commands) == 0 {
+		return []any{}, nil
+	}
 	// Send to /pipeline
 	res, err := p.client.Write(ctx, rest.Request{
 		Path: []string{"pipeline"},
@@ -125,6 +138,39 @@ func (u *Upstash) Multi() *Multi {
 	}
 }
 
+// Tx creates a new Multi (Transaction). Alias for Multi().
+func (u *Upstash) Tx() *Multi {
+	return u.Multi()
+}
+
+// Watch marks the given keys to be watched for conditional execution of a transaction.
+func (u *Upstash) Watch(ctx context.Context, keys ...string) (string, error) {
+	args := make([]any, 0, len(keys))
+	for _, k := range keys {
+		args = append(args, k)
+	}
+	res, err := u.Send(ctx, "WATCH", args...)
+	if err != nil {
+		return "", err
+	}
+	return res.(string), nil
+}
+
+// Unwatch flushes all the previously watched keys for a transaction.
+func (u *Upstash) Unwatch(ctx context.Context) (string, error) {
+	res, err := u.Send(ctx, "UNWATCH")
+	if err != nil {
+		return "", err
+	}
+	return res.(string), nil
+}
+
+// Discard flushes all previously queued commands in a transaction.
+// Note: In REST API, this is usually client-side, but added for parity.
+func (m *Multi) Discard() {
+	m.commands = make([][]any, 0)
+}
+
 // Push adds a command to the transaction.
 func (m *Multi) Push(command string, args ...any) {
 	cmd := make([]any, 0, 1+len(args))
@@ -136,6 +182,9 @@ func (m *Multi) Push(command string, args ...any) {
 // Exec executes the queued commands in the transaction.
 // Returns an array of results corresponding to the commands.
 func (m *Multi) Exec(ctx context.Context) ([]any, error) {
+	if len(m.commands) == 0 {
+		return []any{}, nil
+	}
 	// Send to /multi-exec
 	res, err := m.client.Write(ctx, rest.Request{
 		Path: []string{"multi-exec"},

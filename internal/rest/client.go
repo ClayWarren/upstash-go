@@ -34,11 +34,12 @@ type Request struct {
 }
 
 type upstashClient struct {
-	url          string
-	edgeUrl      string
-	httpClient   HTTPClient
-	token        string
-	enableBase64 bool
+	url              string
+	edgeUrl          string
+	httpClient       HTTPClient
+	token            string
+	enableBase64     bool
+	disableTelemetry bool
 }
 
 func New(
@@ -50,6 +51,7 @@ func New(
 	token string,
 
 	enableBase64 bool,
+	disableTelemetry bool,
 
 ) Client {
 	httpClient := &http.Client{}
@@ -60,6 +62,7 @@ func New(
 		httpClient,
 		token,
 		enableBase64,
+		disableTelemetry,
 	}
 }
 
@@ -96,13 +99,28 @@ func (c *upstashClient) request(ctx context.Context, method string, path []strin
 
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", c.token))
+	if !c.disableTelemetry {
+		req.Header.Set("Upstash-Telemetry-Sdk", "upstash-go@v1.3.0")
+		req.Header.Set("Upstash-Telemetry-Platform", "go")
+	}
 	if c.enableBase64 {
 		req.Header.Set("Upstash-Encoding", "base64")
 	}
 
-	res, err := c.httpClient.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("unable to perform request: %w", err)
+	var res *http.Response
+	var lastErr error
+	for i := 0; i < 3; i++ {
+		res, lastErr = c.httpClient.Do(req)
+		if lastErr == nil {
+			break
+		}
+		// If context is done, don't retry
+		if ctx.Err() != nil {
+			return nil, ctx.Err()
+		}
+	}
+	if lastErr != nil {
+		return nil, fmt.Errorf("unable to perform request after retries: %w", lastErr)
 	}
 	defer func() {
 		_ = res.Body.Close()
