@@ -36,8 +36,7 @@ func setupMockServer(t *testing.T, handlers []mockHandler) (*upstash.Upstash, fu
 		// Verify Body if POST
 		if r.Method == "POST" {
 			var body []any
-			err := json.NewDecoder(r.Body).Decode(&body)
-			require.NoError(t, err)
+			_ = json.NewDecoder(r.Body).Decode(&body)
 			require.Equal(t, h.expectedBody, body)
 		}
 
@@ -135,6 +134,22 @@ func TestUnitGet(t *testing.T) {
 	val, err := u.Get(context.Background(), "foo")
 	require.NoError(t, err)
 	require.Equal(t, "bar", val)
+}
+
+func TestUnitGetEx(t *testing.T) {
+	u, close := setupMockServer(t, []mockHandler{
+		{
+			method:       "POST",
+			expectedBody: []any{"getex", "k", "ex", "60"},
+			response:     "v",
+			status:       200,
+		},
+	})
+	defer close()
+
+	val, err := u.GetEx(context.Background(), "k", upstash.GetEXOptions{EX: 60})
+	require.NoError(t, err)
+	require.Equal(t, "v", val)
 }
 
 func TestUnitGetRange(t *testing.T) {
@@ -411,22 +426,23 @@ func TestUnitClientErrors(t *testing.T) {
 	defer server.Close()
 
 	u, _ := upstash.New(upstash.Options{Url: server.URL, Token: "t"})
+	ctx := context.Background()
 
-	t.Run("Append", func(t *testing.T) { _, err := u.Append(context.Background(), "k", "v"); require.Error(t, err) })
-	t.Run("Decr", func(t *testing.T) { _, err := u.Decr(context.Background(), "k"); require.Error(t, err) })
-	t.Run("DecrBy", func(t *testing.T) { _, err := u.DecrBy(context.Background(), "k", 1); require.Error(t, err) })
-	t.Run("GetRange", func(t *testing.T) { _, err := u.GetRange(context.Background(), "k", 0, 1); require.Error(t, err) })
-	t.Run("GetSet", func(t *testing.T) { _, err := u.GetSet(context.Background(), "k", "v"); require.Error(t, err) })
-	t.Run("Incr", func(t *testing.T) { _, err := u.Incr(context.Background(), "k"); require.Error(t, err) })
-	t.Run("IncrBy", func(t *testing.T) { _, err := u.IncrBy(context.Background(), "k", 1); require.Error(t, err) })
-	t.Run("IncrByFloat", func(t *testing.T) { _, err := u.IncrByFloat(context.Background(), "k", 1.1); require.Error(t, err) })
-	t.Run("MGet", func(t *testing.T) { _, err := u.MGet(context.Background(), []string{"k"}); require.Error(t, err) })
+	t.Run("Append", func(t *testing.T) { _, err := u.Append(ctx, "k", "v"); require.Error(t, err) })
+	t.Run("Decr", func(t *testing.T) { _, err := u.Decr(ctx, "k"); require.Error(t, err) })
+	t.Run("DecrBy", func(t *testing.T) { _, err := u.DecrBy(ctx, "k", 1); require.Error(t, err) })
+	t.Run("GetRange", func(t *testing.T) { _, err := u.GetRange(ctx, "k", 0, 1); require.Error(t, err) })
+	t.Run("GetSet", func(t *testing.T) { _, err := u.GetSet(ctx, "k", "v"); require.Error(t, err) })
+	t.Run("Incr", func(t *testing.T) { _, err := u.Incr(ctx, "k"); require.Error(t, err) })
+	t.Run("IncrBy", func(t *testing.T) { _, err := u.IncrBy(ctx, "k", 1); require.Error(t, err) })
+	t.Run("IncrByFloat", func(t *testing.T) { _, err := u.IncrByFloat(ctx, "k", 1.1); require.Error(t, err) })
+	t.Run("MGet", func(t *testing.T) { _, err := u.MGet(ctx, []string{"k"}); require.Error(t, err) })
 	t.Run("MSetNX", func(t *testing.T) {
-		_, err := u.MSetNX(context.Background(), []upstash.KV{{Key: "k", Value: "v"}})
+		_, err := u.MSetNX(ctx, []upstash.KV{{Key: "k", Value: "v"}})
 		require.Error(t, err)
 	})
-	t.Run("SetNX", func(t *testing.T) { _, err := u.SetNX(context.Background(), "k", "v"); require.Error(t, err) })
-	t.Run("StrLen", func(t *testing.T) { _, err := u.StrLen(context.Background(), "k"); require.Error(t, err) })
+	t.Run("SetNX", func(t *testing.T) { _, err := u.SetNX(ctx, "k", "v"); require.Error(t, err) })
+	t.Run("StrLen", func(t *testing.T) { _, err := u.StrLen(ctx, "k"); require.Error(t, err) })
 }
 
 func TestUnitSetWithOptionsErrors(t *testing.T) {

@@ -1,41 +1,41 @@
 package upstash
 
+// KV represents a Key-Value pair.
 type KV struct {
 	Key   string
 	Value string
 }
 
-// The SET command supports a set of options that modify its behavior:
+// SetOptions represents options for the SET command.
 type SetOptions struct {
-
-	// Set the specified expire time, in seconds.
+	// EX sets the specified expire time, in seconds.
 	EX int
 
-	//  Set the specified expire time, in milliseconds.
+	// PX sets the specified expire time, in milliseconds.
 	PX int
 
-	//  Only set the key if it does not already exist.
+	// NX only sets the key if it does not already exist.
 	NX bool
 
-	//  Only set the key if it already exist.
+	// XX only sets the key if it already exists.
 	XX bool
 }
 
-// The GETEX command supports a set of options that modify its behavior
+// GetEXOptions represents options for the GETEX command.
 // Only one of these should be set.
 type GetEXOptions struct {
-	// Set the specified expire time, in seconds.
+	// EX sets the specified expire time, in seconds.
 	EX int
 
-	//  Set the specified expire time, in milliseconds.
+	// PX sets the specified expire time, in milliseconds.
 	PX int
 
-	//  Set the specified Unix time at which the key will expire, in seconds.
+	// EXAT sets the specified Unix time at which the key will expire, in seconds.
 	EXAT int
 
-	//  Set the specified Unix time at which the key will expire, in milliseconds.
+	// PXAT sets the specified Unix time at which the key will expire, in milliseconds.
 	PXAT int
 
-	//  Remove the time to live associated with the key.
+	// PERSIST removes the time to live associated with the key.
 	PERSIST bool
 }

@@ -111,10 +111,42 @@ func (u *Upstash) DecrBy(ctx context.Context, key string, decrement int) (int, e
 	return int(res.(float64)), nil
 }
 
-// Get retrieves the value of a key.
+// Returns the value of key, or empty string when key does not exist.
+//
+// https://redis.io/commands/get
 func (u *Upstash) Get(ctx context.Context, key string) (string, error) {
+
 	res, err := u.client.Read(ctx, client.Request{
 		Path: []string{"get", key},
+	})
+	if err != nil {
+		return "", err
+	}
+	if res == nil {
+		return "", nil
+	}
+
+	return res.(string), nil
+}
+
+// GetEx retrieves the value of a key and optionally sets its expiration.
+// https://redis.io/commands/getex
+func (u *Upstash) GetEx(ctx context.Context, key string, options GetEXOptions) (string, error) {
+	body := []string{"getex", key}
+	if options.EX != 0 {
+		body = append(body, "ex", fmt.Sprintf("%d", options.EX))
+	} else if options.PX != 0 {
+		body = append(body, "px", fmt.Sprintf("%d", options.PX))
+	} else if options.EXAT != 0 {
+		body = append(body, "exat", fmt.Sprintf("%d", options.EXAT))
+	} else if options.PXAT != 0 {
+		body = append(body, "pxat", fmt.Sprintf("%d", options.PXAT))
+	} else if options.PERSIST {
+		body = append(body, "persist")
+	}
+
+	res, err := u.client.Write(ctx, client.Request{
+		Body: body,
 	})
 	if err != nil {
 		return "", err
