@@ -1,3 +1,21 @@
 {
-    "go.inferGopath": false
+    "go.inferGopath": false,
+    "go.lintTool": "golangci-lint",
+    "go.lintFlags": [
+        "--fast"
+    ],
+    "go.useLanguageServer": true,
+    "[go]": {
+        "editor.formatOnSave": true,
+        "editor.codeActionsOnSave": {
+            "source.organizeImports": "explicit"
+        }
+    },
+    "gopls": {
+        "ui.semanticTokens": true
+    },
+    "files.exclude": {
+        "coverage.out": true,
+        "coverage.txt": true
+    }
 }
