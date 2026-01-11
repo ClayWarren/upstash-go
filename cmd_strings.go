@@ -273,33 +273,6 @@ func (u *Upstash) StrLen(ctx context.Context, key string) (int, error) {
 	return int(res.(float64)), nil
 }
 
-// SetBit sets or clears the bit at offset in the string value stored at key.
-func (u *Upstash) SetBit(ctx context.Context, key string, offset int, value int) (int, error) {
-	res, err := u.Send(ctx, "SETBIT", key, offset, value)
-	if err != nil {
-		return 0, err
-	}
-	return int(res.(float64)), nil
-}
-
-// GetBit returns the bit value at offset in the string value stored at key.
-func (u *Upstash) GetBit(ctx context.Context, key string, offset int) (int, error) {
-	res, err := u.Send(ctx, "GETBIT", key, offset)
-	if err != nil {
-		return 0, err
-	}
-	return int(res.(float64)), nil
-}
-
-// BitCount counts the number of set bits (population counting) in a string.
-func (u *Upstash) BitCount(ctx context.Context, key string) (int, error) {
-	res, err := u.Send(ctx, "BITCOUNT", key)
-	if err != nil {
-		return 0, err
-	}
-	return int(res.(float64)), nil
-}
-
 // GetDel gets the value of key and deletes the key.
 func (u *Upstash) GetDel(ctx context.Context, key string) (string, error) {
 	res, err := u.Send(ctx, "GETDEL", key)

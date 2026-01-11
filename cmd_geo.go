@@ -55,3 +55,36 @@ func (u *Upstash) GeoPos(ctx context.Context, key string, members ...string) ([]
 	}
 	return result, nil
 }
+
+// GeoHash returns valid Geohash strings representing the position of one or more elements of the geospatial index.
+func (u *Upstash) GeoHash(ctx context.Context, key string, members ...string) ([]string, error) {
+	args := make([]any, 0, 1+len(members))
+	args = append(args, key)
+	for _, m := range members {
+		args = append(args, m)
+	}
+	res, err := u.Send(ctx, "GEOHASH", args...)
+	if err != nil {
+		return nil, err
+	}
+	list := res.([]any)
+	result := make([]string, len(list))
+	for i, v := range list {
+		result[i] = v.(string)
+	}
+	return result, nil
+}
+
+// GeoRadiusByMember returns the members of a geospatial index, which are within a maximum distance from a member.
+func (u *Upstash) GeoRadiusByMember(ctx context.Context, key, member string, radius float64, unit string) ([]string, error) {
+	res, err := u.Send(ctx, "GEORADIUSBYMEMBER", key, member, radius, unit)
+	if err != nil {
+		return nil, err
+	}
+	list := res.([]any)
+	result := make([]string, len(list))
+	for i, v := range list {
+		result[i] = v.(string)
+	}
+	return result, nil
+}

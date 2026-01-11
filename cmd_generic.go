@@ -211,3 +211,48 @@ func (u *Upstash) Unlink(ctx context.Context, keys ...string) (int, error) {
 	}
 	return int(res.(float64)), nil
 }
+
+// Migrate atomically transfers a key from a Redis instance to another one.
+func (u *Upstash) Migrate(ctx context.Context, host, port, key, destinationDB string, timeout int64, copy, replace bool, keys ...string) (string, error) {
+	args := make([]any, 0, 6)
+	args = append(args, host, port, key, destinationDB, timeout)
+	if copy {
+		args = append(args, "COPY")
+	}
+	if replace {
+		args = append(args, "REPLACE")
+	}
+	if len(keys) > 0 {
+		args = append(args, "KEYS")
+		for _, k := range keys {
+			args = append(args, k)
+		}
+	}
+	res, err := u.Send(ctx, "MIGRATE", args...)
+	if err != nil {
+		return "", err
+	}
+	return res.(string), nil
+}
+
+// Object returns various information about a key.
+func (u *Upstash) Object(ctx context.Context, subcommand, key string) (any, error) {
+	return u.Send(ctx, "OBJECT", subcommand, key)
+}
+
+// Sort returns or stores the elements in a list, set or sorted set.
+func (u *Upstash) Sort(ctx context.Context, key string, args ...any) (any, error) {
+	fullArgs := make([]any, 0, 1+len(args))
+	fullArgs = append(fullArgs, key)
+	fullArgs = append(fullArgs, args...)
+	return u.Send(ctx, "SORT", fullArgs...)
+}
+
+// Wait blocks the current client until all the previous write commands are successfully transferred and acknowledged by at least the specified number of replicas.
+func (u *Upstash) Wait(ctx context.Context, numReplicas int, timeout int64) (int, error) {
+	res, err := u.Send(ctx, "WAIT", numReplicas, timeout)
+	if err != nil {
+		return 0, err
+	}
+	return int(res.(float64)), nil
+}
