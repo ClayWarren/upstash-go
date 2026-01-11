@@ -79,7 +79,22 @@ func (u *Upstash) Keys(pattern string) ([]string, error) {
 	if res == nil {
 		return []string{}, nil
 	}
-	return res.([]string), nil
+	
+	// Handle conversion from []interface{} (which JSON decoder produces) to []string
+	if list, ok := res.([]interface{}); ok {
+		keys := make([]string, len(list))
+		for i, v := range list {
+			keys[i] = fmt.Sprint(v)
+		}
+		return keys, nil
+	}
+
+	// Fallback if it's already []string (e.g. from a different client implementation or mock)
+	if list, ok := res.([]string); ok {
+		return list, nil
+	}
+
+	return nil, fmt.Errorf("unexpected return type for keys: %T", res)
 }
 
 // If key already exists and is a string, this command appends the value at
