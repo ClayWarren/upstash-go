@@ -7,9 +7,16 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"math"
 	"net/http"
 	"strings"
+	"time"
 )
+
+// DefaultBackoff implements the TS client's exponential backoff: exp(retryCount) * 50ms
+func DefaultBackoff(retryCount int) time.Duration {
+	return time.Duration(math.Exp(float64(retryCount))*50) * time.Millisecond
+}
 
 type HTTPClient interface {
 	Do(req *http.Request) (*http.Response, error)
@@ -40,6 +47,8 @@ type upstashClient struct {
 	token            string
 	enableBase64     bool
 	disableTelemetry bool
+	retries          int
+	backoff          func(int) time.Duration
 }
 
 func New(
@@ -52,10 +61,11 @@ func New(
 
 	enableBase64 bool,
 	disableTelemetry bool,
+	retries int,
+	backoff func(int) time.Duration,
+	httpClient HTTPClient,
 
 ) Client {
-	httpClient := &http.Client{}
-
 	return &upstashClient{
 		url,
 		edgeUrl,
@@ -63,6 +73,8 @@ func New(
 		token,
 		enableBase64,
 		disableTelemetry,
+		retries,
+		backoff,
 	}
 }
 
@@ -109,7 +121,16 @@ func (c *upstashClient) request(ctx context.Context, method string, path []strin
 
 	var res *http.Response
 	var lastErr error
-	for i := 0; i < 3; i++ {
+	for i := 0; i <= c.retries; i++ {
+		if i > 0 {
+			// Backoff before retry
+			select {
+			case <-time.After(c.backoff(i)):
+			case <-ctx.Done():
+				return nil, ctx.Err()
+			}
+		}
+
 		res, lastErr = c.httpClient.Do(req)
 		if lastErr == nil {
 			break

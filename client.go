@@ -3,17 +3,28 @@ package upstash
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"os"
+	"time"
 
 	"github.com/claywarren/upstash-go/internal/rest"
 )
+
+// RetryConfig defines the retry strategy for network errors.
+type RetryConfig struct {
+	// Retries is the number of retry attempts. Defaults to 5.
+	Retries int
+	// Backoff is a function that returns the delay for a given retry attempt.
+	// Defaults to exponential backoff: exp(retryCount) * 50ms.
+	Backoff func(retryCount int) time.Duration
+}
 
 // Upstash is a client for the Upstash Redis REST API.
 type Upstash struct {
 	client rest.Client
 }
 
-// Options provides configuration for the Upstash rest.
+// Options provides configuration for the Upstash client.
 type Options struct {
 	// Url is the Upstash endpoint you want to use.
 	// Falls back to `UPSTASH_REDIS_REST_URL` environment variable.
@@ -36,6 +47,12 @@ type Options struct {
 	// DisableTelemetry specifies if telemetry data should be sent.
 	// Falls back to `UPSTASH_DISABLE_TELEMETRY` environment variable.
 	DisableTelemetry bool
+
+	// Retry defines the retry configuration.
+	Retry RetryConfig
+
+	// HTTPClient allows providing a custom http.Client.
+	HTTPClient *http.Client
 }
 
 // New creates a new Upstash client with the provided options.
@@ -57,8 +74,19 @@ func New(options Options) (Upstash, error) {
 		}
 	}
 
+	// Set defaults
+	if options.Retry.Retries == 0 {
+		options.Retry.Retries = 5
+	}
+	if options.Retry.Backoff == nil {
+		options.Retry.Backoff = rest.DefaultBackoff
+	}
+	if options.HTTPClient == nil {
+		options.HTTPClient = &http.Client{}
+	}
+
 	return Upstash{
-		client: rest.New(options.Url, options.EdgeUrl, options.Token, options.EnableBase64, options.DisableTelemetry),
+		client: rest.New(options.Url, options.EdgeUrl, options.Token, options.EnableBase64, options.DisableTelemetry, options.Retry.Retries, options.Retry.Backoff, options.HTTPClient),
 	}, nil
 }
 

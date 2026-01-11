@@ -12,7 +12,7 @@ import (
 )
 
 func TestNew(t *testing.T) {
-	c := rest.New("http://example.com", "http://edge.example.com", "token", false)
+	c := rest.New("http://example.com", "http://edge.example.com", "token", false, false, 0, rest.DefaultBackoff, &http.Client{})
 	require.NotNil(t, c)
 }
 
@@ -29,7 +29,7 @@ func TestRead(t *testing.T) {
 	}))
 	defer server.Close()
 
-	c := rest.New(server.URL, "", "token", false)
+	c := rest.New(server.URL, "", "token", false, false, 0, rest.DefaultBackoff, &http.Client{})
 	res, err := c.Read(context.Background(), rest.Request{
 		Path: []string{"get", "foo"},
 	})
@@ -56,7 +56,7 @@ func TestWrite(t *testing.T) {
 	}))
 	defer server.Close()
 
-	c := rest.New(server.URL, "", "token", false)
+	c := rest.New(server.URL, "", "token", false, false, 0, rest.DefaultBackoff, &http.Client{})
 	res, err := c.Write(context.Background(), rest.Request{
 		Path: []string{"set", "foo", "bar"},
 		Body: "body-content",
@@ -80,7 +80,7 @@ func TestEdgeUrl(t *testing.T) {
 	}))
 	defer restServer.Close()
 
-	c := rest.New(restServer.URL, edgeServer.URL, "token", false)
+	c := rest.New(restServer.URL, edgeServer.URL, "token", false, false, 0, rest.DefaultBackoff, &http.Client{})
 	res, err := c.Read(context.Background(), rest.Request{
 		Path: []string{"get", "foo"},
 	})
@@ -97,7 +97,7 @@ func TestApiError(t *testing.T) {
 	}))
 	defer server.Close()
 
-	c := rest.New(server.URL, "", "token", false)
+	c := rest.New(server.URL, "", "token", false, false, 0, rest.DefaultBackoff, &http.Client{})
 	_, err := c.Read(context.Background(), rest.Request{Path: []string{"get"}})
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "ERR syntax error")
@@ -112,7 +112,7 @@ func TestServerError(t *testing.T) {
 	}))
 	defer server.Close()
 
-	c := rest.New(server.URL, "", "token", false)
+	c := rest.New(server.URL, "", "token", false, false, 0, rest.DefaultBackoff, &http.Client{})
 	_, err := c.Read(context.Background(), rest.Request{Path: []string{"get"}})
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "response returned status code 500")
@@ -128,14 +128,14 @@ func TestResponseErrorField(t *testing.T) {
 	}))
 	defer server.Close()
 
-	c := rest.New(server.URL, "", "token", false)
+	c := rest.New(server.URL, "", "token", false, false, 0, rest.DefaultBackoff, &http.Client{})
 	_, err := c.Read(context.Background(), rest.Request{Path: []string{"get"}})
 	require.Error(t, err)
 	require.Equal(t, "ERR logical error", err.Error())
 }
 
 func TestMarshalError(t *testing.T) {
-	c := rest.New("http://example.com", "", "token", false)
+	c := rest.New("http://example.com", "", "token", false, false, 0, rest.DefaultBackoff, &http.Client{})
 	// Pass a channel which cannot be marshaled to JSON
 	_, err := c.Write(context.Background(), rest.Request{
 		Body: make(chan int),
@@ -158,7 +158,7 @@ func TestBase64Decoding(t *testing.T) {
 	}))
 	defer server.Close()
 
-	c := rest.New(server.URL, "", "token", true)
+	c := rest.New(server.URL, "", "token", true, false, 0, rest.DefaultBackoff, &http.Client{})
 	res, err := c.Read(context.Background(), rest.Request{})
 	require.NoError(t, err)
 
@@ -185,7 +185,7 @@ func TestRetries(t *testing.T) {
 	}))
 	defer server.Close()
 
-	c := rest.New(server.URL, "", "token", false)
+	c := rest.New(server.URL, "", "token", false, false, 3, rest.DefaultBackoff, &http.Client{})
 	res, err := c.Read(context.Background(), rest.Request{})
 	require.NoError(t, err)
 	require.Equal(t, "success", res)
@@ -201,7 +201,7 @@ func TestRetryFailure(t *testing.T) {
 	}))
 	defer server.Close()
 
-	c := rest.New(server.URL, "", "token", false)
+	c := rest.New(server.URL, "", "token", false, false, 3, rest.DefaultBackoff, &http.Client{})
 	_, err := c.Read(context.Background(), rest.Request{})
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "unable to perform request after retries")
@@ -218,7 +218,7 @@ func TestContextCancelledDuringRetry(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel() // cancel immediately
 
-	c := rest.New(server.URL, "", "token", false)
+	c := rest.New(server.URL, "", "token", false, false, 3, rest.DefaultBackoff, &http.Client{})
 	_, err := c.Read(ctx, rest.Request{})
 	require.Error(t, err)
 	require.Equal(t, context.Canceled, err)
@@ -232,7 +232,7 @@ func TestStream(t *testing.T) {
 	}))
 	defer server.Close()
 
-	c := rest.New(server.URL, "", "token", false)
+	c := rest.New(server.URL, "", "token", false, false, 0, rest.DefaultBackoff, &http.Client{})
 	stream, err := c.Stream(context.Background(), rest.Request{Path: []string{"sub"}})
 	require.NoError(t, err)
 	require.NotNil(t, stream)
