@@ -12,7 +12,7 @@ import (
 )
 
 func TestNew(t *testing.T) {
-	c := client.New("http://example.com", "http://edge.example.com", "token")
+	c := client.New("http://example.com", "http://edge.example.com", "token", false)
 	require.NotNil(t, c)
 }
 
@@ -29,7 +29,7 @@ func TestRead(t *testing.T) {
 	}))
 	defer server.Close()
 
-	c := client.New(server.URL, "", "token")
+	c := client.New(server.URL, "", "token", false)
 	res, err := c.Read(context.Background(), client.Request{
 		Path: []string{"get", "foo"},
 	})
@@ -56,7 +56,7 @@ func TestWrite(t *testing.T) {
 	}))
 	defer server.Close()
 
-	c := client.New(server.URL, "", "token")
+	c := client.New(server.URL, "", "token", false)
 	res, err := c.Write(context.Background(), client.Request{
 		Path: []string{"set", "foo", "bar"},
 		Body: "body-content",
@@ -80,7 +80,7 @@ func TestEdgeUrl(t *testing.T) {
 	}))
 	defer restServer.Close()
 
-	c := client.New(restServer.URL, edgeServer.URL, "token")
+	c := client.New(restServer.URL, edgeServer.URL, "token", false)
 	res, err := c.Read(context.Background(), client.Request{
 		Path: []string{"get", "foo"},
 	})
@@ -97,7 +97,7 @@ func TestApiError(t *testing.T) {
 	}))
 	defer server.Close()
 
-	c := client.New(server.URL, "", "token")
+	c := client.New(server.URL, "", "token", false)
 	_, err := c.Read(context.Background(), client.Request{Path: []string{"get"}})
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "ERR syntax error")
@@ -112,7 +112,7 @@ func TestServerError(t *testing.T) {
 	}))
 	defer server.Close()
 
-	c := client.New(server.URL, "", "token")
+	c := client.New(server.URL, "", "token", false)
 	_, err := c.Read(context.Background(), client.Request{Path: []string{"get"}})
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "response returned status code 500")
@@ -128,18 +128,62 @@ func TestResponseErrorField(t *testing.T) {
 	}))
 	defer server.Close()
 
-	c := client.New(server.URL, "", "token")
+	c := client.New(server.URL, "", "token", false)
 	_, err := c.Read(context.Background(), client.Request{Path: []string{"get"}})
 	require.Error(t, err)
 	require.Equal(t, "ERR logical error", err.Error())
 }
 
 func TestMarshalError(t *testing.T) {
-	c := client.New("http://example.com", "", "token")
+	c := client.New("http://example.com", "", "token", false)
 	// Pass a channel which cannot be marshaled to JSON
 	_, err := c.Write(context.Background(), client.Request{
 		Body: make(chan int),
 	})
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "unable to marshal request body")
+}
+
+func TestBase64Decoding(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		require.Equal(t, "base64", r.Header.Get("Upstash-Encoding"))
+		w.WriteHeader(http.StatusOK)
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"result": map[string]any{
+				"scalar": "YmFy",             // "bar"
+				"list":   []any{"YmFy", 123}, // "bar", 123
+				"ok":     "OK",               // should not be decoded
+			},
+		})
+	}))
+	defer server.Close()
+
+	c := client.New(server.URL, "", "token", true)
+	res, err := c.Read(context.Background(), client.Request{})
+	require.NoError(t, err)
+
+	resMap := res.(map[string]any)
+	require.Equal(t, "bar", resMap["scalar"])
+	require.Equal(t, "bar", resMap["list"].([]any)[0])
+	require.Equal(t, float64(123), resMap["list"].([]any)[1])
+	require.Equal(t, "OK", resMap["ok"])
+}
+
+func TestStream(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		require.Equal(t, "text/event-stream", r.Header.Get("Accept"))
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte("data: hello\n\n"))
+	}))
+	defer server.Close()
+
+	c := client.New(server.URL, "", "token", false)
+	stream, err := c.Stream(context.Background(), client.Request{Path: []string{"sub"}})
+	require.NoError(t, err)
+	require.NotNil(t, stream)
+
+	buf := make([]byte, 100)
+	n, _ := stream.Read(buf)
+	require.Contains(t, string(buf[:n]), "data: hello")
+	_ = stream.Close()
 }

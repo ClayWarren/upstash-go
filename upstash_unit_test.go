@@ -3,6 +3,7 @@ package upstash_test
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -574,4 +575,455 @@ func TestUnitKeysUnexpectedType(t *testing.T) {
 	_, err := u.Keys(context.Background(), "*")
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "unexpected return type for keys")
+}
+
+func TestUnitBase64(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		require.Equal(t, "base64", r.Header.Get("Upstash-Encoding"))
+		w.WriteHeader(http.StatusOK)
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"result": "YmFy", // "bar"
+		})
+	}))
+	defer server.Close()
+
+	u, _ := upstash.New(upstash.Options{
+		Url:          server.URL,
+		Token:        "t",
+		EnableBase64: true,
+	})
+
+	val, err := u.Get(context.Background(), "foo")
+	require.NoError(t, err)
+	require.Equal(t, "bar", val)
+}
+
+func TestUnitHashMethods(t *testing.T) {
+	u, close := setupMockServer(t, []mockHandler{
+		{
+			method:       "POST",
+			expectedBody: []any{"HSET", "h", "f", "v"},
+			response:     float64(1),
+			status:       200,
+		},
+		{
+			method:       "POST",
+			expectedBody: []any{"HGET", "h", "f"},
+			response:     "v",
+			status:       200,
+		},
+		{
+			method:       "POST",
+			expectedBody: []any{"HGETALL", "h"},
+			response:     []any{"f1", "v1", "f2", "v2"},
+			status:       200,
+		},
+		{
+			method:       "POST",
+			expectedBody: []any{"HDEL", "h", "f1", "f2"},
+			response:     float64(2),
+			status:       200,
+		},
+		{
+			method:       "POST",
+			expectedBody: []any{"HLEN", "h"},
+			response:     float64(2),
+			status:       200,
+		},
+	})
+	defer close()
+
+	ctx := context.Background()
+
+	res, err := u.HSet(ctx, "h", "f", "v")
+	require.NoError(t, err)
+	require.Equal(t, 1, res)
+
+	val, err := u.HGet(ctx, "h", "f")
+	require.NoError(t, err)
+	require.Equal(t, "v", val)
+
+	all, err := u.HGetAll(ctx, "h")
+	require.NoError(t, err)
+	require.Equal(t, map[string]string{"f1": "v1", "f2": "v2"}, all)
+
+	deleted, err := u.HDel(ctx, "h", "f1", "f2")
+	require.NoError(t, err)
+	require.Equal(t, 2, deleted)
+
+	length, err := u.HLen(ctx, "h")
+	require.NoError(t, err)
+	require.Equal(t, 2, length)
+}
+
+func TestUnitListMethods(t *testing.T) {
+	u, close := setupMockServer(t, []mockHandler{
+		{
+			method:       "POST",
+			expectedBody: []any{"LPUSH", "l", "v1", "v2"},
+			response:     float64(2),
+			status:       200,
+		},
+		{
+			method:       "POST",
+			expectedBody: []any{"RPUSH", "l", "v3"},
+			response:     float64(3),
+			status:       200,
+		},
+		{
+			method:       "POST",
+			expectedBody: []any{"LPOP", "l"},
+			response:     "v2",
+			status:       200,
+		},
+		{
+			method:       "POST",
+			expectedBody: []any{"RPOP", "l"},
+			response:     "v3",
+			status:       200,
+		},
+		{
+			method:       "POST",
+			expectedBody: []any{"LLEN", "l"},
+			response:     float64(1),
+			status:       200,
+		},
+	})
+	defer close()
+
+	ctx := context.Background()
+
+	res, err := u.LPush(ctx, "l", "v1", "v2")
+	require.NoError(t, err)
+	require.Equal(t, 2, res)
+
+	res, err = u.RPush(ctx, "l", "v3")
+	require.NoError(t, err)
+	require.Equal(t, 3, res)
+
+	val, err := u.LPop(ctx, "l")
+	require.NoError(t, err)
+	require.Equal(t, "v2", val)
+
+	val, err = u.RPop(ctx, "l")
+	require.NoError(t, err)
+	require.Equal(t, "v3", val)
+
+	length, err := u.LLen(ctx, "l")
+	require.NoError(t, err)
+	require.Equal(t, 1, length)
+}
+
+func TestUnitScanMethods(t *testing.T) {
+	u, close := setupMockServer(t, []mockHandler{
+		{
+			method:       "POST",
+			expectedBody: []any{"SCAN", "0", "MATCH", "user:*", "COUNT", float64(10), "TYPE", "string"},
+			response:     []any{"123", []any{"user:1", "user:2"}},
+			status:       200,
+		},
+	})
+	defer close()
+
+	res, err := u.Scan(context.Background(), "0", upstash.ScanOptions{
+		Match: "user:*",
+		Count: 10,
+		Type:  "string",
+	})
+	require.NoError(t, err)
+	require.Equal(t, "123", res.Cursor)
+	require.Equal(t, []string{"user:1", "user:2"}, res.Items)
+
+	// HScan test
+	u2, close2 := setupMockServer(t, []mockHandler{
+		{
+			method:       "POST",
+			expectedBody: []any{"HSCAN", "myhash", "0"},
+			response:     []any{"0", []any{"f1", "v1"}},
+			status:       200,
+		},
+	})
+	defer close2()
+	hres, err := u2.HScan(context.Background(), "myhash", "0", upstash.ScanOptions{})
+	require.NoError(t, err)
+	require.Equal(t, "0", hres.Cursor)
+	require.Equal(t, []string{"f1", "v1"}, hres.Items)
+}
+
+func TestUnitHyperLogLog(t *testing.T) {
+	u, close := setupMockServer(t, []mockHandler{
+		{
+			method:       "POST",
+			expectedBody: []any{"PFADD", "hll", "a", "b"},
+			response:     float64(1),
+			status:       200,
+		},
+		{
+			method:       "POST",
+			expectedBody: []any{"PFCOUNT", "hll"},
+			response:     float64(2),
+			status:       200,
+		},
+		{
+			method:       "POST",
+			expectedBody: []any{"PFMERGE", "dest", "s1", "s2"},
+			response:     "OK",
+			status:       200,
+		},
+	})
+	defer close()
+
+	ctx := context.Background()
+	res, err := u.PFAdd(ctx, "hll", "a", "b")
+	require.NoError(t, err)
+	require.Equal(t, 1, res)
+
+	count, err := u.PFCount(ctx, "hll")
+	require.NoError(t, err)
+	require.Equal(t, 2, count)
+
+	err = u.PFMerge(ctx, "dest", "s1", "s2")
+	require.NoError(t, err)
+}
+
+func TestUnitBitmaps(t *testing.T) {
+	u, close := setupMockServer(t, []mockHandler{
+		{
+			method:       "POST",
+			expectedBody: []any{"SETBIT", "b", float64(10), float64(1)},
+			response:     float64(0),
+			status:       200,
+		},
+		{
+			method:       "POST",
+			expectedBody: []any{"GETBIT", "b", float64(10)},
+			response:     float64(1),
+			status:       200,
+		},
+		{
+			method:       "POST",
+			expectedBody: []any{"BITCOUNT", "b"},
+			response:     float64(5),
+			status:       200,
+		},
+	})
+	defer close()
+
+	ctx := context.Background()
+	res, err := u.SetBit(ctx, "b", 10, 1)
+	require.NoError(t, err)
+	require.Equal(t, 0, res)
+
+	bit, err := u.GetBit(ctx, "b", 10)
+	require.NoError(t, err)
+	require.Equal(t, 1, bit)
+
+	bc, err := u.BitCount(ctx, "b")
+	require.NoError(t, err)
+	require.Equal(t, 5, bc)
+}
+
+func TestUnitGenericMethods(t *testing.T) {
+	u, close := setupMockServer(t, []mockHandler{
+		{
+			method:       "POST",
+			expectedBody: []any{"DEL", "k1", "k2"},
+			response:     float64(2),
+			status:       200,
+		},
+		{
+			method:       "POST",
+			expectedBody: []any{"EXISTS", "k1"},
+			response:     float64(1),
+			status:       200,
+		},
+		{
+			method:       "POST",
+			expectedBody: []any{"EXPIRE", "k1", float64(10)},
+			response:     float64(1),
+			status:       200,
+		},
+		{
+			method:       "POST",
+			expectedBody: []any{"TTL", "k1"},
+			response:     float64(5),
+			status:       200,
+		},
+	})
+	defer close()
+
+	ctx := context.Background()
+
+	res, err := u.Del(ctx, "k1", "k2")
+	require.NoError(t, err)
+	require.Equal(t, 2, res)
+
+	res, err = u.Exists(ctx, "k1")
+	require.NoError(t, err)
+	require.Equal(t, 1, res)
+
+	res, err = u.Expire(ctx, "k1", 10)
+	require.NoError(t, err)
+	require.Equal(t, 1, res)
+
+	res, err = u.Ttl(ctx, "k1")
+	require.NoError(t, err)
+	require.Equal(t, 5, res)
+}
+
+func TestUnitSetMethods(t *testing.T) {
+	u, close := setupMockServer(t, []mockHandler{
+		{
+			method:       "POST",
+			expectedBody: []any{"SADD", "s", "m1", "m2"},
+			response:     float64(2),
+			status:       200,
+		},
+		{
+			method:       "POST",
+			expectedBody: []any{"SMEMBERS", "s"},
+			response:     []any{"m1", "m2"},
+			status:       200,
+		},
+		{
+			method:       "POST",
+			expectedBody: []any{"SREM", "s", "m1"},
+			response:     float64(1),
+			status:       200,
+		},
+		{
+			method:       "POST",
+			expectedBody: []any{"SISMEMBER", "s", "m2"},
+			response:     float64(1),
+			status:       200,
+		},
+		{
+			method:       "POST",
+			expectedBody: []any{"SCARD", "s"},
+			response:     float64(1),
+			status:       200,
+		},
+	})
+	defer close()
+
+	ctx := context.Background()
+
+	res, err := u.SAdd(ctx, "s", "m1", "m2")
+	require.NoError(t, err)
+	require.Equal(t, 2, res)
+
+	members, err := u.SMembers(ctx, "s")
+	require.NoError(t, err)
+	require.Equal(t, []string{"m1", "m2"}, members)
+
+	res, err = u.SRem(ctx, "s", "m1")
+	require.NoError(t, err)
+	require.Equal(t, 1, res)
+
+	isMem, err := u.SIsMember(ctx, "s", "m2")
+	require.NoError(t, err)
+	require.Equal(t, 1, isMem)
+
+	card, err := u.SCard(ctx, "s")
+	require.NoError(t, err)
+	require.Equal(t, 1, card)
+}
+
+func TestUnitSortedSetMethods(t *testing.T) {
+	u, close := setupMockServer(t, []mockHandler{
+		{
+			method:       "POST",
+			expectedBody: []any{"ZADD", "zs", float64(1), "m1"},
+			response:     float64(1),
+			status:       200,
+		},
+		{
+			method:       "POST",
+			expectedBody: []any{"ZRANGE", "zs", float64(0), float64(-1)},
+			response:     []any{"m1"},
+			status:       200,
+		},
+		{
+			method:       "POST",
+			expectedBody: []any{"ZSCORE", "zs", "m1"},
+			response:     "1.0",
+			status:       200,
+		},
+		{
+			method:       "POST",
+			expectedBody: []any{"ZREM", "zs", "m1"},
+			response:     float64(1),
+			status:       200,
+		},
+		{
+			method:       "POST",
+			expectedBody: []any{"ZCARD", "zs"},
+			response:     float64(0),
+			status:       200,
+		},
+	})
+	defer close()
+
+	ctx := context.Background()
+
+	res, err := u.ZAdd(ctx, "zs", 1, "m1")
+	require.NoError(t, err)
+	require.Equal(t, 1, res)
+
+	rangeRes, err := u.ZRange(ctx, "zs", 0, -1)
+	require.NoError(t, err)
+	require.Equal(t, []string{"m1"}, rangeRes)
+
+	score, err := u.ZScore(ctx, "zs", "m1")
+	require.NoError(t, err)
+	require.Equal(t, 1.0, score)
+
+	removed, err := u.ZRem(ctx, "zs", "m1")
+	require.NoError(t, err)
+	require.Equal(t, 1, removed)
+
+	card, err := u.ZCard(ctx, "zs")
+	require.NoError(t, err)
+	require.Equal(t, 0, card)
+}
+
+func TestUnitPublish(t *testing.T) {
+	u, close := setupMockServer(t, []mockHandler{
+		{
+			method:       "POST",
+			expectedBody: []any{"PUBLISH", "ch", "msg"},
+			response:     float64(1),
+			status:       200,
+		},
+	})
+	defer close()
+
+	res, err := u.Publish(context.Background(), "ch", "msg")
+	require.NoError(t, err)
+	require.Equal(t, 1, res)
+}
+
+func TestUnitSubscribe(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/event-stream")
+		w.WriteHeader(http.StatusOK)
+		flusher, _ := w.(http.Flusher)
+
+		_, _ = fmt.Fprint(w, "data: \"hello\"\n\n")
+		flusher.Flush()
+		_, _ = fmt.Fprint(w, "data: world\n\n")
+		flusher.Flush()
+	}))
+	defer server.Close()
+
+	u, _ := upstash.New(upstash.Options{Url: server.URL, Token: "t"})
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	msgs, err := u.Subscribe(ctx, "ch")
+	require.NoError(t, err)
+
+	require.Equal(t, "hello", <-msgs)
+	require.Equal(t, "world", <-msgs)
 }

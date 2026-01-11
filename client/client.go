@@ -3,6 +3,7 @@ package client
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -17,6 +18,7 @@ type HTTPClient interface {
 type Client interface {
 	Read(ctx context.Context, req Request) (any, error)
 	Write(ctx context.Context, req Request) (any, error)
+	Stream(ctx context.Context, req Request) (io.ReadCloser, error)
 }
 
 type Response struct {
@@ -32,10 +34,11 @@ type Request struct {
 }
 
 type upstashClient struct {
-	url        string
-	edgeUrl    string
-	httpClient HTTPClient
-	token      string
+	url          string
+	edgeUrl      string
+	httpClient   HTTPClient
+	token        string
+	enableBase64 bool
 }
 
 func New(
@@ -46,6 +49,8 @@ func New(
 	// Requests to the Upstash API must provide an API token.
 	token string,
 
+	enableBase64 bool,
+
 ) Client {
 	httpClient := &http.Client{}
 
@@ -54,6 +59,7 @@ func New(
 		edgeUrl,
 		httpClient,
 		token,
+		enableBase64,
 	}
 }
 
@@ -90,6 +96,9 @@ func (c *upstashClient) request(ctx context.Context, method string, path []strin
 
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", c.token))
+	if c.enableBase64 {
+		req.Header.Set("Upstash-Encoding", "base64")
+	}
 
 	res, err := c.httpClient.Do(req)
 	if err != nil {
@@ -127,18 +136,56 @@ func (c *upstashClient) request(ctx context.Context, method string, path []strin
 			return nil, fmt.Errorf("%s", errStr)
 		}
 		if res, ok := respMap["result"]; ok {
+			if c.enableBase64 {
+				return decodeBase64(res), nil
+			}
 			return res, nil
 		}
-		// If neither, return the map itself (unexpected but safe)
+		// If neither, return the map itself
+		if c.enableBase64 {
+			return decodeBase64(respMap), nil
+		}
 		return respMap, nil
 	}
 
 	// Handle pipeline/transaction response: [{"result":...}, ...]
 	if respSlice, ok := rawResponse.([]any); ok {
+		if c.enableBase64 {
+			return decodeBase64(respSlice), nil
+		}
 		return respSlice, nil
 	}
 
+	if c.enableBase64 {
+		return decodeBase64(rawResponse), nil
+	}
 	return rawResponse, nil
+}
+
+func decodeBase64(v any) any {
+	switch val := v.(type) {
+	case string:
+		if val == "OK" {
+			return val
+		}
+		decoded, err := base64.StdEncoding.DecodeString(val)
+		if err != nil {
+			return val // return raw if not base64
+		}
+		return string(decoded)
+	case []any:
+		for i, item := range val {
+			val[i] = decodeBase64(item)
+		}
+		return val
+	case map[string]any:
+		for k, item := range val {
+			val[k] = decodeBase64(item)
+		}
+		return val
+	default:
+		return v
+	}
 }
 
 func (c *upstashClient) Read(ctx context.Context, req Request) (any, error) {
@@ -148,4 +195,29 @@ func (c *upstashClient) Read(ctx context.Context, req Request) (any, error) {
 // Call the API and unmarshal its response directly
 func (c *upstashClient) Write(ctx context.Context, req Request) (any, error) {
 	return c.request(ctx, "POST", req.Path, req.Body)
+}
+
+func (c *upstashClient) Stream(ctx context.Context, req Request) (io.ReadCloser, error) {
+	baseUrl := c.url
+	url := fmt.Sprintf("%s/%s", baseUrl, strings.Join(req.Path, "/"))
+
+	httpReq, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	if err != nil {
+		return nil, fmt.Errorf("unable to create stream request: %w", err)
+	}
+
+	httpReq.Header.Set("Authorization", fmt.Sprintf("Bearer %s", c.token))
+	httpReq.Header.Set("Accept", "text/event-stream")
+
+	res, err := c.httpClient.Do(httpReq)
+	if err != nil {
+		return nil, fmt.Errorf("unable to perform stream request: %w", err)
+	}
+
+	if res.StatusCode < 200 || res.StatusCode >= 300 {
+		_ = res.Body.Close()
+		return nil, fmt.Errorf("stream request returned status code %d", res.StatusCode)
+	}
+
+	return res.Body, nil
 }
