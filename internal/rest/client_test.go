@@ -6,13 +6,14 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/claywarren/upstash-go/internal/rest"
 	"github.com/stretchr/testify/require"
 )
 
 func TestNew(t *testing.T) {
-	c := rest.New("http://example.com", "http://edge.example.com", "token", false, false, 0, rest.DefaultBackoff, &http.Client{})
+	c := rest.New("http://example.com", "http://edge.example.com", "token", false, false, 0, rest.DefaultBackoff, &http.Client{}, nil)
 	require.NotNil(t, c)
 }
 
@@ -29,7 +30,7 @@ func TestRead(t *testing.T) {
 	}))
 	defer server.Close()
 
-	c := rest.New(server.URL, "", "token", false, false, 0, rest.DefaultBackoff, &http.Client{})
+	c := rest.New(server.URL, "", "token", false, false, 0, rest.DefaultBackoff, &http.Client{}, nil)
 	res, err := c.Read(context.Background(), rest.Request{
 		Path: []string{"get", "foo"},
 	})
@@ -56,7 +57,7 @@ func TestWrite(t *testing.T) {
 	}))
 	defer server.Close()
 
-	c := rest.New(server.URL, "", "token", false, false, 0, rest.DefaultBackoff, &http.Client{})
+	c := rest.New(server.URL, "", "token", false, false, 0, rest.DefaultBackoff, &http.Client{}, nil)
 	res, err := c.Write(context.Background(), rest.Request{
 		Path: []string{"set", "foo", "bar"},
 		Body: "body-content",
@@ -80,7 +81,7 @@ func TestEdgeUrl(t *testing.T) {
 	}))
 	defer restServer.Close()
 
-	c := rest.New(restServer.URL, edgeServer.URL, "token", false, false, 0, rest.DefaultBackoff, &http.Client{})
+	c := rest.New(restServer.URL, edgeServer.URL, "token", false, false, 0, rest.DefaultBackoff, &http.Client{}, nil)
 	res, err := c.Read(context.Background(), rest.Request{
 		Path: []string{"get", "foo"},
 	})
@@ -97,7 +98,7 @@ func TestApiError(t *testing.T) {
 	}))
 	defer server.Close()
 
-	c := rest.New(server.URL, "", "token", false, false, 0, rest.DefaultBackoff, &http.Client{})
+	c := rest.New(server.URL, "", "token", false, false, 0, rest.DefaultBackoff, &http.Client{}, nil)
 	_, err := c.Read(context.Background(), rest.Request{Path: []string{"get"}})
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "ERR syntax error")
@@ -112,7 +113,7 @@ func TestServerError(t *testing.T) {
 	}))
 	defer server.Close()
 
-	c := rest.New(server.URL, "", "token", false, false, 0, rest.DefaultBackoff, &http.Client{})
+	c := rest.New(server.URL, "", "token", false, false, 0, rest.DefaultBackoff, &http.Client{}, nil)
 	_, err := c.Read(context.Background(), rest.Request{Path: []string{"get"}})
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "response returned status code 500")
@@ -128,14 +129,14 @@ func TestResponseErrorField(t *testing.T) {
 	}))
 	defer server.Close()
 
-	c := rest.New(server.URL, "", "token", false, false, 0, rest.DefaultBackoff, &http.Client{})
+	c := rest.New(server.URL, "", "token", false, false, 0, rest.DefaultBackoff, &http.Client{}, nil)
 	_, err := c.Read(context.Background(), rest.Request{Path: []string{"get"}})
 	require.Error(t, err)
 	require.Equal(t, "ERR logical error", err.Error())
 }
 
 func TestMarshalError(t *testing.T) {
-	c := rest.New("http://example.com", "", "token", false, false, 0, rest.DefaultBackoff, &http.Client{})
+	c := rest.New("http://example.com", "", "token", false, false, 0, rest.DefaultBackoff, &http.Client{}, nil)
 	// Pass a channel which cannot be marshaled to JSON
 	_, err := c.Write(context.Background(), rest.Request{
 		Body: make(chan int),
@@ -158,7 +159,7 @@ func TestBase64Decoding(t *testing.T) {
 	}))
 	defer server.Close()
 
-	c := rest.New(server.URL, "", "token", true, false, 0, rest.DefaultBackoff, &http.Client{})
+	c := rest.New(server.URL, "", "token", true, false, 0, rest.DefaultBackoff, &http.Client{}, nil)
 	res, err := c.Read(context.Background(), rest.Request{})
 	require.NoError(t, err)
 
@@ -185,7 +186,7 @@ func TestRetries(t *testing.T) {
 	}))
 	defer server.Close()
 
-	c := rest.New(server.URL, "", "token", false, false, 3, rest.DefaultBackoff, &http.Client{})
+	c := rest.New(server.URL, "", "token", false, false, 3, rest.DefaultBackoff, &http.Client{}, nil)
 	res, err := c.Read(context.Background(), rest.Request{})
 	require.NoError(t, err)
 	require.Equal(t, "success", res)
@@ -201,7 +202,7 @@ func TestRetryFailure(t *testing.T) {
 	}))
 	defer server.Close()
 
-	c := rest.New(server.URL, "", "token", false, false, 3, rest.DefaultBackoff, &http.Client{})
+	c := rest.New(server.URL, "", "token", false, false, 3, rest.DefaultBackoff, &http.Client{}, nil)
 	_, err := c.Read(context.Background(), rest.Request{})
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "unable to perform request after retries")
@@ -218,10 +219,88 @@ func TestContextCancelledDuringRetry(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel() // cancel immediately
 
-	c := rest.New(server.URL, "", "token", false, false, 3, rest.DefaultBackoff, &http.Client{})
+	c := rest.New(server.URL, "", "token", false, false, 3, rest.DefaultBackoff, &http.Client{}, nil)
 	_, err := c.Read(ctx, rest.Request{})
 	require.Error(t, err)
 	require.Equal(t, context.Canceled, err)
+}
+
+func TestLatencyLogger(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_ = json.NewEncoder(w).Encode(map[string]any{"result": "ok"})
+	}))
+	defer server.Close()
+
+	var loggedCmd string
+	var loggedLatency time.Duration
+	logger := func(cmd string, latency time.Duration) {
+		loggedCmd = cmd
+		loggedLatency = latency
+	}
+
+	c := rest.New(server.URL, "", "token", false, false, 0, rest.DefaultBackoff, &http.Client{}, logger)
+	_, _ = c.Read(context.Background(), rest.Request{Path: []string{"GET"}})
+
+	require.Equal(t, "GET", loggedCmd)
+	require.True(t, loggedLatency > 0)
+}
+
+func TestDefaultBackoff(t *testing.T) {
+	for i := 0; i < 5; i++ {
+		d := rest.DefaultBackoff(i)
+		require.True(t, d > 0)
+	}
+}
+
+func TestBase64DecodingNested(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"result": map[string]any{
+				"outer": map[string]any{
+					"inner": "YmFy",
+				},
+				"array": []any{
+					map[string]any{"key": "YmFy"},
+				},
+			},
+		})
+	}))
+	defer server.Close()
+
+	c := rest.New(server.URL, "", "token", true, true, 0, rest.DefaultBackoff, &http.Client{}, nil)
+	res, err := c.Read(context.Background(), rest.Request{})
+	require.NoError(t, err)
+
+	resMap := res.(map[string]any)
+	outer := resMap["outer"].(map[string]any)
+	require.Equal(t, "bar", outer["inner"])
+}
+
+func TestStreamErrors(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+	defer server.Close()
+
+	c := rest.New(server.URL, "", "token", false, true, 0, rest.DefaultBackoff, &http.Client{}, nil)
+	_, err := c.Stream(context.Background(), rest.Request{})
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "stream request returned status code 500")
+}
+
+func TestRawResponseBranches(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`"raw-string"`)) // Not a map or slice
+	}))
+	defer server.Close()
+
+	c := rest.New(server.URL, "", "token", true, true, 0, rest.DefaultBackoff, &http.Client{}, nil)
+	res, err := c.Read(context.Background(), rest.Request{})
+	require.NoError(t, err)
+	require.Equal(t, "raw-string", res)
 }
 
 func TestStream(t *testing.T) {
@@ -232,7 +311,7 @@ func TestStream(t *testing.T) {
 	}))
 	defer server.Close()
 
-	c := rest.New(server.URL, "", "token", false, false, 0, rest.DefaultBackoff, &http.Client{})
+	c := rest.New(server.URL, "", "token", false, false, 0, rest.DefaultBackoff, &http.Client{}, nil)
 	stream, err := c.Stream(context.Background(), rest.Request{Path: []string{"sub"}})
 	require.NoError(t, err)
 	require.NotNil(t, stream)

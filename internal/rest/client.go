@@ -49,6 +49,7 @@ type upstashClient struct {
 	disableTelemetry bool
 	retries          int
 	backoff          func(int) time.Duration
+	latencyLogger    func(string, time.Duration)
 }
 
 func New(
@@ -64,6 +65,7 @@ func New(
 	retries int,
 	backoff func(int) time.Duration,
 	httpClient HTTPClient,
+	latencyLogger func(string, time.Duration),
 
 ) Client {
 	return &upstashClient{
@@ -75,6 +77,7 @@ func New(
 		disableTelemetry,
 		retries,
 		backoff,
+		latencyLogger,
 	}
 }
 
@@ -93,6 +96,21 @@ func marshalBody(body any) (io.Reader, error) {
 
 // Perform a request and return its response
 func (c *upstashClient) request(ctx context.Context, method string, path []string, body any) (any, error) {
+	start := time.Now()
+	if c.latencyLogger != nil {
+		defer func() {
+			cmd := "UNKNOWN"
+			if len(path) > 0 {
+				cmd = path[0]
+			} else if body != nil {
+				if b, ok := body.([]any); ok && len(b) > 0 {
+					cmd = fmt.Sprint(b[0])
+				}
+			}
+			c.latencyLogger(cmd, time.Since(start))
+		}()
+	}
+
 	payload, err := marshalBody(body)
 	if err != nil {
 		return nil, fmt.Errorf("unable to marshal request body: %w", err)

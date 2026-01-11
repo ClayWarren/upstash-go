@@ -53,6 +53,16 @@ type Options struct {
 
 	// HTTPClient allows providing a custom http.Client.
 	HTTPClient *http.Client
+
+	// EnableAutoPipelining collects commands and sends them in a single batch.
+	EnableAutoPipelining bool
+
+	// AutoPipelineWindow is the duration to wait before flushing the auto-pipeline queue.
+	// Defaults to 50ms.
+	AutoPipelineWindow time.Duration
+
+	// LatencyLogger is a callback function to log request latency.
+	LatencyLogger func(command string, latency time.Duration)
 }
 
 // New creates a new Upstash client with the provided options.
@@ -84,10 +94,15 @@ func New(options Options) (Upstash, error) {
 	if options.HTTPClient == nil {
 		options.HTTPClient = &http.Client{}
 	}
+	if options.AutoPipelineWindow == 0 {
+		options.AutoPipelineWindow = 50 * time.Millisecond
+	}
 
-	return Upstash{
-		client: rest.New(options.Url, options.EdgeUrl, options.Token, options.EnableBase64, options.DisableTelemetry, options.Retry.Retries, options.Retry.Backoff, options.HTTPClient),
-	}, nil
+	u := Upstash{
+		client: rest.New(options.Url, options.EdgeUrl, options.Token, options.EnableBase64, options.DisableTelemetry, options.Retry.Retries, options.Retry.Backoff, options.HTTPClient, options.LatencyLogger),
+	}
+
+	return u, nil
 }
 
 // Send executes an arbitrary Redis command.
