@@ -1,6 +1,7 @@
 package upstash_test
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"testing"
@@ -16,10 +17,10 @@ func TestKeys(t *testing.T) {
 	value := uuid.NewString()
 	u := createUpstash(t)
 
-	err := u.Set(key, value)
+	err := u.Set(context.Background(), key, value)
 	require.NoError(t, err)
 
-	keys, err := u.Keys(key)
+	keys, err := u.Keys(context.Background(), key)
 	require.NoError(t, err)
 	require.Equal(t, []string{key}, keys)
 
@@ -31,14 +32,14 @@ func TestAppend(t *testing.T) {
 	addition := uuid.NewString()
 	u := createUpstash(t)
 
-	err := u.Set(key, value)
+	err := u.Set(context.Background(), key, value)
 	require.NoError(t, err)
 
-	length, err := u.Append(key, addition)
+	length, err := u.Append(context.Background(), key, addition)
 	require.NoError(t, err)
 	require.Equal(t, 72, length)
 
-	got, err := u.Get(key)
+	got, err := u.Get(context.Background(), key)
 	require.NoError(t, err)
 	require.Equal(t, fmt.Sprintf("%s%s", value, addition), got)
 }
@@ -48,10 +49,10 @@ func TestDecr(t *testing.T) {
 	value := "1"
 	u := createUpstash(t)
 
-	err := u.Set(key, value)
+	err := u.Set(context.Background(), key, value)
 	require.NoError(t, err)
 
-	after, err := u.Decr(key)
+	after, err := u.Decr(context.Background(), key)
 	require.NoError(t, err)
 
 	require.Equal(t, 0, after)
@@ -62,10 +63,10 @@ func TestDecrBy(t *testing.T) {
 	value := "5"
 	u := createUpstash(t)
 
-	err := u.Set(key, value)
+	err := u.Set(context.Background(), key, value)
 	require.NoError(t, err)
 
-	after, err := u.DecrBy(key, 4)
+	after, err := u.DecrBy(context.Background(), key, 4)
 	require.NoError(t, err)
 
 	require.Equal(t, 1, after)
@@ -76,23 +77,23 @@ func TestGet(t *testing.T) {
 	value := uuid.NewString()
 	u := createUpstash(t)
 
-	err := u.Set(key, value)
+	err := u.Set(context.Background(), key, value)
 	require.NoError(t, err)
 
-	got, err := u.Get(key)
+	got, err := u.Get(context.Background(), key)
 	require.NoError(t, err)
 	require.Equal(t, value, got)
 }
 
 func TestGetWithEmptyKey(t *testing.T) {
 	u := createUpstash(t)
-	_, err := u.Get("")
+	_, err := u.Get(context.Background(), "")
 	require.Error(t, err)
 }
 
 func TestGetWithNonExistentKey(t *testing.T) {
 	u := createUpstash(t)
-	got, err := u.Get(uuid.NewString())
+	got, err := u.Get(context.Background(), uuid.NewString())
 	require.NoError(t, err)
 	require.Equal(t, "", got)
 }
@@ -102,10 +103,10 @@ func TestGetRange(t *testing.T) {
 	value := "abcde"
 	u := createUpstash(t)
 
-	err := u.Set(key, value)
+	err := u.Set(context.Background(), key, value)
 	require.NoError(t, err)
 
-	got, err := u.GetRange(key, 1, 3)
+	got, err := u.GetRange(context.Background(), key, 1, 3)
 	require.NoError(t, err)
 	require.Equal(t, "bcd", got)
 }
@@ -116,14 +117,14 @@ func TestGetSet(t *testing.T) {
 	value2 := uuid.NewString()
 	u := createUpstash(t)
 
-	err := u.Set(key, value)
+	err := u.Set(context.Background(), key, value)
 	require.NoError(t, err)
 
-	got, err := u.GetSet(key, value2)
+	got, err := u.GetSet(context.Background(), key, value2)
 	require.NoError(t, err)
 	require.Equal(t, value, got)
 
-	got2, err := u.Get(key)
+	got2, err := u.Get(context.Background(), key)
 	require.NoError(t, err)
 	require.Equal(t, value2, got2)
 
@@ -134,10 +135,10 @@ func TestIncr(t *testing.T) {
 	value := "1"
 	u := createUpstash(t)
 
-	err := u.Set(key, value)
+	err := u.Set(context.Background(), key, value)
 	require.NoError(t, err)
 
-	after, err := u.Incr(key)
+	after, err := u.Incr(context.Background(), key)
 	require.NoError(t, err)
 	require.Equal(t, 2, after)
 }
@@ -147,10 +148,10 @@ func TestIncrBy(t *testing.T) {
 	value := "5"
 	u := createUpstash(t)
 
-	err := u.Set(key, value)
+	err := u.Set(context.Background(), key, value)
 	require.NoError(t, err)
 
-	after, err := u.IncrBy(key, 3)
+	after, err := u.IncrBy(context.Background(), key, 3)
 	require.NoError(t, err)
 
 	require.Equal(t, 8, after)
@@ -160,10 +161,10 @@ func TestIncrByFloat(t *testing.T) {
 	value := "5"
 	u := createUpstash(t)
 
-	err := u.Set(key, value)
+	err := u.Set(context.Background(), key, value)
 	require.NoError(t, err)
 
-	after, err := u.IncrByFloat(key, 3.5)
+	after, err := u.IncrByFloat(context.Background(), key, 3.5)
 	require.NoError(t, err)
 
 	require.Equal(t, 8.5, after)
@@ -176,13 +177,13 @@ func TestMGet(t *testing.T) {
 	value2 := uuid.NewString()
 	u := createUpstash(t)
 
-	err := u.Set(key1, value1)
+	err := u.Set(context.Background(), key1, value1)
 	require.NoError(t, err)
 
-	err = u.Set(key2, value2)
+	err = u.Set(context.Background(), key2, value2)
 	require.NoError(t, err)
 
-	got, err := u.MGet([]string{key1, key2})
+	got, err := u.MGet(context.Background(), []string{key1, key2})
 	require.NoError(t, err)
 
 	require.Equal(t, []string{value1, value2}, got)
@@ -195,15 +196,15 @@ func TestMSet(t *testing.T) {
 	value2 := uuid.NewString()
 	u := createUpstash(t)
 
-	err := u.MSet([]upstash.KV{{Key: key1, Value: value1}, {Key: key2, Value: value2}})
+	err := u.MSet(context.Background(), []upstash.KV{{Key: key1, Value: value1}, {Key: key2, Value: value2}})
 	require.NoError(t, err)
 
-	got1, err := u.Get(key1)
+	got1, err := u.Get(context.Background(), key1)
 	require.NoError(t, err)
 
 	require.Equal(t, value1, got1)
 
-	got2, err := u.Get(key2)
+	got2, err := u.Get(context.Background(), key2)
 	require.NoError(t, err)
 
 	require.Equal(t, value2, got2)
@@ -216,16 +217,16 @@ func TestMSetNX(t *testing.T) {
 	value2 := uuid.NewString()
 	u := createUpstash(t)
 
-	allSet, err := u.MSetNX([]upstash.KV{{Key: key1, Value: value1}, {Key: key2, Value: value2}})
+	allSet, err := u.MSetNX(context.Background(), []upstash.KV{{Key: key1, Value: value1}, {Key: key2, Value: value2}})
 	require.NoError(t, err)
 	require.Equal(t, 1, allSet)
 
-	got1, err := u.Get(key1)
+	got1, err := u.Get(context.Background(), key1)
 	require.NoError(t, err)
 
 	require.Equal(t, value1, got1)
 
-	got2, err := u.Get(key2)
+	got2, err := u.Get(context.Background(), key2)
 	require.NoError(t, err)
 
 	require.Equal(t, value2, got2)
@@ -238,10 +239,10 @@ func TestMSetNXWithExistingKeys(t *testing.T) {
 	value2 := uuid.NewString()
 	u := createUpstash(t)
 
-	err := u.Set(key1, value1)
+	err := u.Set(context.Background(), key1, value1)
 	require.NoError(t, err)
 
-	allSet, err := u.MSetNX([]upstash.KV{{Key: key1, Value: value1}, {Key: key2, Value: value2}})
+	allSet, err := u.MSetNX(context.Background(), []upstash.KV{{Key: key1, Value: value1}, {Key: key2, Value: value2}})
 	require.NoError(t, err)
 	require.Equal(t, 0, allSet)
 
@@ -251,17 +252,17 @@ func TestPSetEX(t *testing.T) {
 	value := uuid.NewString()
 	u := createUpstash(t)
 
-	err := u.PSetEX(key, 1000, value)
+	err := u.PSetEX(context.Background(), key, 1000, value)
 	require.NoError(t, err)
 
-	got1, err := u.Get(key)
+	got1, err := u.Get(context.Background(), key)
 	require.NoError(t, err)
 
 	require.Equal(t, value, got1)
 
 	time.Sleep(2 * time.Second)
 
-	got2, err := u.Get(key)
+	got2, err := u.Get(context.Background(), key)
 	require.NoError(t, err)
 	require.Equal(t, "", got2)
 }
@@ -271,10 +272,10 @@ func TestSet(t *testing.T) {
 	value := uuid.NewString()
 	u := createUpstash(t)
 
-	err := u.Set(key, value)
+	err := u.Set(context.Background(), key, value)
 	require.NoError(t, err)
 
-	got, err := u.Get(key)
+	got, err := u.Get(context.Background(), key)
 	require.NoError(t, err)
 	require.Equal(t, value, got)
 }
@@ -284,16 +285,16 @@ func TestSetWithOptions_EX(t *testing.T) {
 	value := uuid.NewString()
 	u := createUpstash(t)
 
-	err := u.SetWithOptions(key, value, upstash.SetOptions{
+	err := u.SetWithOptions(context.Background(), key, value, upstash.SetOptions{
 		EX: 2,
 	})
 	require.NoError(t, err)
-	got, err := u.Get(key)
+	got, err := u.Get(context.Background(), key)
 	require.NoError(t, err)
 	require.Equal(t, value, got)
 
 	time.Sleep(5 * time.Second)
-	got2, err := u.Get(key)
+	got2, err := u.Get(context.Background(), key)
 	require.NoError(t, err)
 	require.Equal(t, "", got2)
 }
@@ -303,16 +304,16 @@ func TestSetWithOptions_PX(t *testing.T) {
 	value := uuid.NewString()
 	u := createUpstash(t)
 
-	err := u.SetWithOptions(key, value, upstash.SetOptions{
+	err := u.SetWithOptions(context.Background(), key, value, upstash.SetOptions{
 		PX: 2000,
 	})
 	require.NoError(t, err)
-	got, err := u.Get(key)
+	got, err := u.Get(context.Background(), key)
 	require.NoError(t, err)
 	require.Equal(t, value, got)
 
 	time.Sleep(5 * time.Second)
-	got2, err := u.Get(key)
+	got2, err := u.Get(context.Background(), key)
 	require.NoError(t, err)
 	require.Equal(t, "", got2)
 }
@@ -322,16 +323,16 @@ func TestSetWithOptions_NX(t *testing.T) {
 	value := uuid.NewString()
 	u := createUpstash(t)
 
-	err := u.SetWithOptions(key, value, upstash.SetOptions{
+	err := u.SetWithOptions(context.Background(), key, value, upstash.SetOptions{
 		NX: true,
 	})
 	require.NoError(t, err)
 
-	err = u.SetWithOptions(key, uuid.NewString(), upstash.SetOptions{
+	err = u.SetWithOptions(context.Background(), key, uuid.NewString(), upstash.SetOptions{
 		NX: true,
 	})
 	require.NoError(t, err)
-	got, err := u.Get(key)
+	got, err := u.Get(context.Background(), key)
 	require.NoError(t, err)
 	require.Equal(t, value, got)
 
@@ -343,22 +344,22 @@ func TestSetWithOptions_XX(t *testing.T) {
 	value2 := uuid.NewString()
 	u := createUpstash(t)
 
-	err := u.SetWithOptions(key, value, upstash.SetOptions{
+	err := u.SetWithOptions(context.Background(), key, value, upstash.SetOptions{
 		XX: true,
 	})
 	require.NoError(t, err)
-	got, err := u.Get(key)
+	got, err := u.Get(context.Background(), key)
 	require.NoError(t, err)
 	require.Equal(t, "", got)
 
-	err = u.Set(key, value)
+	err = u.Set(context.Background(), key, value)
 	require.NoError(t, err)
 
-	err = u.SetWithOptions(key, value2, upstash.SetOptions{
+	err = u.SetWithOptions(context.Background(), key, value2, upstash.SetOptions{
 		XX: true,
 	})
 	require.NoError(t, err)
-	got2, err := u.Get(key)
+	got2, err := u.Get(context.Background(), key)
 	require.NoError(t, err)
 	require.Equal(t, value2, got2)
 
@@ -369,16 +370,16 @@ func TestSetEX(t *testing.T) {
 	value := uuid.NewString()
 	u := createUpstash(t)
 
-	err := u.SetEX(key, 1, value)
+	err := u.SetEX(context.Background(), key, 1, value)
 	require.NoError(t, err)
 
-	got1, err := u.Get(key)
+	got1, err := u.Get(context.Background(), key)
 	require.NoError(t, err)
 	require.Equal(t, value, got1)
 
 	time.Sleep(2 * time.Second)
 
-	got2, err := u.Get(key)
+	got2, err := u.Get(context.Background(), key)
 	require.NoError(t, err)
 	require.Equal(t, "", got2)
 }
@@ -388,7 +389,7 @@ func TestSetNX(t *testing.T) {
 	value := uuid.NewString()
 	u := createUpstash(t)
 
-	set, err := u.SetNX(key, value)
+	set, err := u.SetNX(context.Background(), key, value)
 	require.NoError(t, err)
 	require.Equal(t, 1, set)
 
@@ -399,10 +400,10 @@ func TestSetNXWithExistingKey(t *testing.T) {
 	value := uuid.NewString()
 	u := createUpstash(t)
 
-	err := u.Set(key, value)
+	err := u.Set(context.Background(), key, value)
 	require.NoError(t, err)
 
-	set, err := u.SetNX(key, value)
+	set, err := u.SetNX(context.Background(), key, value)
 	require.NoError(t, err)
 	require.Equal(t, 0, set)
 
@@ -414,13 +415,13 @@ func TestSetRange(t *testing.T) {
 	overwrite := "HELLO"
 	u := createUpstash(t)
 
-	err := u.Set(key, value)
+	err := u.Set(context.Background(), key, value)
 	require.NoError(t, err)
 
-	err = u.SetRange(key, 4, overwrite)
+	err = u.SetRange(context.Background(), key, 4, overwrite)
 	require.NoError(t, err)
 
-	got, err := u.Get(key)
+	got, err := u.Get(context.Background(), key)
 	require.NoError(t, err)
 	require.Equal(t, fmt.Sprintf("%s%s%s", value[:4], overwrite, value[9:]), got)
 
@@ -431,10 +432,10 @@ func TestStrLen(t *testing.T) {
 	value := uuid.NewString()
 	u := createUpstash(t)
 
-	err := u.Set(key, value)
+	err := u.Set(context.Background(), key, value)
 	require.NoError(t, err)
 
-	res, err := u.StrLen(key)
+	res, err := u.StrLen(context.Background(), key)
 	require.NoError(t, err)
 
 	require.Equal(t, 36, res)

@@ -2,6 +2,7 @@ package client
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -14,13 +15,13 @@ type HTTPClient interface {
 }
 
 type Client interface {
-	Read(req Request) (any, error)
-	Write(req Request) (any, error)
+	Read(ctx context.Context, req Request) (any, error)
+	Write(ctx context.Context, req Request) (any, error)
 }
 
 type Response struct {
-	Result any `json:"result"`
-	Error  string      `json:"error"`
+	Result any    `json:"result"`
+	Error  string `json:"error"`
 }
 
 type Request struct {
@@ -70,7 +71,7 @@ func marshalBody(body any) (io.Reader, error) {
 }
 
 // Perform a request and return its response
-func (c *upstashClient) request(method string, path []string, body any) (any, error) {
+func (c *upstashClient) request(ctx context.Context, method string, path []string, body any) (any, error) {
 	payload, err := marshalBody(body)
 	if err != nil {
 		return nil, fmt.Errorf("unable to marshal request body: %w", err)
@@ -82,7 +83,7 @@ func (c *upstashClient) request(method string, path []string, body any) (any, er
 	}
 
 	url := fmt.Sprintf("%s/%s", baseUrl, strings.Join(path, "/"))
-	req, err := http.NewRequest(method, url, payload)
+	req, err := http.NewRequestWithContext(ctx, method, url, payload)
 	if err != nil {
 		return nil, fmt.Errorf("unable to create request: %w", err)
 	}
@@ -126,11 +127,11 @@ func (c *upstashClient) request(method string, path []string, body any) (any, er
 
 }
 
-func (c *upstashClient) Read(req Request) (any, error) {
-	return c.request("GET", req.Path, nil)
+func (c *upstashClient) Read(ctx context.Context, req Request) (any, error) {
+	return c.request(ctx, "GET", req.Path, nil)
 }
 
 // Call the API and unmarshal its response directly
-func (c *upstashClient) Write(req Request) (any, error) {
-	return c.request("POST", req.Path, req.Body)
+func (c *upstashClient) Write(ctx context.Context, req Request) (any, error) {
+	return c.request(ctx, "POST", req.Path, req.Body)
 }

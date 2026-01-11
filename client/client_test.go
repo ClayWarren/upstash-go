@@ -1,6 +1,7 @@
 package client_test
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -22,14 +23,14 @@ func TestRead(t *testing.T) {
 		require.Equal(t, "/get/foo", r.URL.Path)
 
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(map[string]any{
+		_ = json.NewEncoder(w).Encode(map[string]any{
 			"result": "bar",
 		})
 	}))
 	defer server.Close()
 
 	c := client.New(server.URL, "", "token")
-	res, err := c.Read(client.Request{
+	res, err := c.Read(context.Background(), client.Request{
 		Path: []string{"get", "foo"},
 	})
 	require.NoError(t, err)
@@ -49,14 +50,14 @@ func TestWrite(t *testing.T) {
 		require.Equal(t, "body-content", body)
 
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(map[string]any{
+		_ = json.NewEncoder(w).Encode(map[string]any{
 			"result": "OK",
 		})
 	}))
 	defer server.Close()
 
 	c := client.New(server.URL, "", "token")
-	res, err := c.Write(client.Request{
+	res, err := c.Write(context.Background(), client.Request{
 		Path: []string{"set", "foo", "bar"},
 		Body: "body-content",
 	})
@@ -68,7 +69,7 @@ func TestEdgeUrl(t *testing.T) {
 	edgeServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		require.Equal(t, "GET", r.Method)
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(map[string]any{
+		_ = json.NewEncoder(w).Encode(map[string]any{
 			"result": "from-edge",
 		})
 	}))
@@ -80,7 +81,7 @@ func TestEdgeUrl(t *testing.T) {
 	defer restServer.Close()
 
 	c := client.New(restServer.URL, edgeServer.URL, "token")
-	res, err := c.Read(client.Request{
+	res, err := c.Read(context.Background(), client.Request{
 		Path: []string{"get", "foo"},
 	})
 	require.NoError(t, err)
@@ -90,14 +91,14 @@ func TestEdgeUrl(t *testing.T) {
 func TestApiError(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(map[string]any{
+		_ = json.NewEncoder(w).Encode(map[string]any{
 			"error": "ERR syntax error",
 		})
 	}))
 	defer server.Close()
 
 	c := client.New(server.URL, "", "token")
-	_, err := c.Read(client.Request{Path: []string{"get"}})
+	_, err := c.Read(context.Background(), client.Request{Path: []string{"get"}})
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "ERR syntax error")
 }
@@ -105,14 +106,14 @@ func TestApiError(t *testing.T) {
 func TestServerError(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(map[string]any{
+		_ = json.NewEncoder(w).Encode(map[string]any{
 			"error": "Internal Server Error",
 		})
 	}))
 	defer server.Close()
 
 	c := client.New(server.URL, "", "token")
-	_, err := c.Read(client.Request{Path: []string{"get"}})
+	_, err := c.Read(context.Background(), client.Request{Path: []string{"get"}})
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "response returned status code 500")
 }
@@ -121,14 +122,14 @@ func TestResponseErrorField(t *testing.T) {
 	// Tests the case where status is 200 but the JSON body contains an "error" field
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(map[string]any{
+		_ = json.NewEncoder(w).Encode(map[string]any{
 			"error": "ERR logical error",
 		})
 	}))
 	defer server.Close()
 
 	c := client.New(server.URL, "", "token")
-	_, err := c.Read(client.Request{Path: []string{"get"}})
+	_, err := c.Read(context.Background(), client.Request{Path: []string{"get"}})
 	require.Error(t, err)
 	require.Equal(t, "ERR logical error", err.Error())
 }
@@ -136,7 +137,7 @@ func TestResponseErrorField(t *testing.T) {
 func TestMarshalError(t *testing.T) {
 	c := client.New("http://example.com", "", "token")
 	// Pass a channel which cannot be marshaled to JSON
-	_, err := c.Write(client.Request{
+	_, err := c.Write(context.Background(), client.Request{
 		Body: make(chan int),
 	})
 	require.Error(t, err)

@@ -1,6 +1,7 @@
 package upstash
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"strconv"
@@ -69,8 +70,8 @@ type Response struct {
 
 // Return value
 // Array reply: list of keys matching pattern.
-func (u *Upstash) Keys(pattern string) ([]string, error) {
-	res, err := u.client.Read(client.Request{
+func (u *Upstash) Keys(ctx context.Context, pattern string) ([]string, error) {
+	res, err := u.client.Read(ctx, client.Request{
 		Body: []string{"keys", pattern},
 	})
 	if err != nil {
@@ -79,7 +80,7 @@ func (u *Upstash) Keys(pattern string) ([]string, error) {
 	if res == nil {
 		return []string{}, nil
 	}
-	
+
 	// Handle conversion from []interface{} (which JSON decoder produces) to []string
 	if list, ok := res.([]interface{}); ok {
 		keys := make([]string, len(list))
@@ -104,9 +105,9 @@ func (u *Upstash) Keys(pattern string) ([]string, error) {
 // Return the length of the string after the append operation.
 //
 // https://redis.io/commands/append
-func (u *Upstash) Append(key string, value string) (int, error) {
+func (u *Upstash) Append(ctx context.Context, key string, value string) (int, error) {
 
-	res, err := u.client.Write(client.Request{
+	res, err := u.client.Write(ctx, client.Request{
 		Body: []string{"append", key, value},
 	})
 	if err != nil {
@@ -115,19 +116,12 @@ func (u *Upstash) Append(key string, value string) (int, error) {
 	return int(res.(float64)), nil
 }
 
-// Decrements the number stored at key by one. If the key does not exist, it is
-// set to 0 before performing the operation. An error is returned if the key
-// contains a value of the wrong type or contains a string that can not be
-// represented as integer. This operation is limited to 64 bit signed integers.
-//
-// See INCR for extra information on increment/decrement operations.
-//
-// # Returns  the value of key after the decrement
+// Returns  the value of key after the decrement
 //
 // https://redis.io/commands/decr
-func (u *Upstash) Decr(key string) (int, error) {
+func (u *Upstash) Decr(ctx context.Context, key string) (int, error) {
 
-	res, err := u.client.Write(client.Request{
+	res, err := u.client.Write(ctx, client.Request{
 		Body: []string{"decr", key},
 	})
 	if err != nil {
@@ -147,9 +141,9 @@ func (u *Upstash) Decr(key string) (int, error) {
 // # Returns the value of key after the decrement
 //
 // https://redis.io/commands/decrby
-func (u *Upstash) DecrBy(key string, decrement int) (int, error) {
+func (u *Upstash) DecrBy(ctx context.Context, key string, decrement int) (int, error) {
 
-	res, err := u.client.Write(client.Request{
+	res, err := u.client.Write(ctx, client.Request{
 		Body: []string{"decrby", key, fmt.Sprintf("%d", decrement)},
 	})
 	if err != nil {
@@ -165,9 +159,9 @@ func (u *Upstash) DecrBy(key string, decrement int) (int, error) {
 // Returns the value of key, or empty string when key does not exist.
 //
 // https://redis.io/commands/get
-func (u *Upstash) Get(key string) (string, error) {
+func (u *Upstash) Get(ctx context.Context, key string) (string, error) {
 
-	res, err := u.client.Read(client.Request{
+	res, err := u.client.Read(ctx, client.Request{
 		Path: []string{"get", key},
 	})
 	if err != nil {
@@ -192,9 +186,9 @@ func (u *Upstash) Get(key string) (string, error) {
 // not exist
 //
 // https://redis.io/commands/getrange
-func (u *Upstash) GetRange(key string, start int, end int) (string, error) {
+func (u *Upstash) GetRange(ctx context.Context, key string, start int, end int) (string, error) {
 
-	res, err := u.client.Read(client.Request{
+	res, err := u.client.Read(ctx, client.Request{
 		Path: []string{"getrange", key, fmt.Sprintf("%d", start), fmt.Sprintf("%d", end)},
 	})
 	if err != nil {
@@ -212,8 +206,8 @@ func (u *Upstash) GetRange(key string, start int, end int) (string, error) {
 // Returns the old value stored at key, or empty string when key did not exist.
 //
 // https://redis.io/commands/getset
-func (u *Upstash) GetSet(key string, value string) (string, error) {
-	res, err := u.client.Write(client.Request{
+func (u *Upstash) GetSet(ctx context.Context, key string, value string) (string, error) {
+	res, err := u.client.Write(ctx, client.Request{
 		Body: []string{"getset", key, value},
 	})
 	if err != nil {
@@ -241,9 +235,9 @@ func (u *Upstash) GetSet(key string, value string) (string, error) {
 // # Returns the value of key after the increment
 //
 // https://redis.io/commands/incr
-func (u *Upstash) Incr(key string) (int, error) {
+func (u *Upstash) Incr(ctx context.Context, key string) (int, error) {
 
-	res, err := u.client.Write(client.Request{
+	res, err := u.client.Write(ctx, client.Request{
 		Body: []string{"incr", key},
 	})
 	if err != nil {
@@ -252,19 +246,11 @@ func (u *Upstash) Incr(key string) (int, error) {
 	return int(res.(float64)), nil
 }
 
-// Increments the number stored at key by increment. If the key does not
-// exist, it is set to 0 before performing the operation. An error is
-// returned if the key contains a value of the wrong type or contains a
-// string that can not be represented as integer. This operation is limited
-// to 64 bit signed integers.
-//
-// See INCR for extra information on increment/decrement operations.
-//
-// # Returns the value of key after the increment
+// Returns the value of key after the increment
 //
 // https://redis.io/commands/incrby
-func (u *Upstash) IncrBy(key string, increment int) (int, error) {
-	res, err := u.client.Write(client.Request{
+func (u *Upstash) IncrBy(ctx context.Context, key string, increment int) (int, error) {
+	res, err := u.client.Write(ctx, client.Request{
 		Body: []string{"incrby", key, fmt.Sprintf("%d", increment)},
 	})
 	if err != nil {
@@ -300,8 +286,8 @@ func (u *Upstash) IncrBy(key string, increment int) (int, error) {
 // Returns the value of key after the increment.
 //
 // https://redis.io/commands/incrbyfloat
-func (u *Upstash) IncrByFloat(key string, increment float64) (float64, error) {
-	res, err := u.client.Write(client.Request{
+func (u *Upstash) IncrByFloat(ctx context.Context, key string, increment float64) (float64, error) {
+	res, err := u.client.Write(ctx, client.Request{
 		Body: []string{"incrbyfloat", key, fmt.Sprintf("%f", increment)},
 	})
 	if err != nil {
@@ -322,8 +308,8 @@ func (u *Upstash) IncrByFloat(key string, increment float64) (float64, error) {
 // Returns a list of values at the specified keys.
 //
 // https://redis.io/commands/mget
-func (u *Upstash) MGet(keys []string) ([]string, error) {
-	res, err := u.client.Read(client.Request{
+func (u *Upstash) MGet(ctx context.Context, keys []string) ([]string, error) {
+	res, err := u.client.Read(ctx, client.Request{
 		Path: append([]string{"mget"}, keys...),
 	})
 	if err != nil {
@@ -338,23 +324,16 @@ func (u *Upstash) MGet(keys []string) ([]string, error) {
 	return values, err
 }
 
-// Sets the given keys to their respective values. MSET replaces existing
-// values with new values, just as regular SET. See MSETNX if you don't want
-// to overwrite existing values.
-//
-// MSET is atomic, so all given keys are set at once. It is not possible for
-// clients to see that some of the keys were updated while others are unchanged.
-//
 // Returns nil, MSET can't fail.
 //
 // https://redis.io/commands/mset
-func (u *Upstash) MSet(kvPairs []KV) error {
+func (u *Upstash) MSet(ctx context.Context, kvPairs []KV) error {
 	body := []string{"mset"}
 	for _, kv := range kvPairs {
 		body = append(body, kv.Key, kv.Value)
 	}
 
-	_, err := u.client.Write(client.Request{
+	_, err := u.client.Write(ctx, client.Request{
 		Body: body,
 	})
 	return err
@@ -377,13 +356,13 @@ func (u *Upstash) MSet(kvPairs []KV) error {
 // 0 if no key was set (at least one key already existed
 //
 // https://redis.io/commands/msetnx
-func (u *Upstash) MSetNX(kvPairs []KV) (int, error) {
+func (u *Upstash) MSetNX(ctx context.Context, kvPairs []KV) (int, error) {
 	body := []string{"msetnx"}
 	for _, kv := range kvPairs {
 		body = append(body, kv.Key, kv.Value)
 	}
 
-	res, err := u.client.Write(client.Request{
+	res, err := u.client.Write(ctx, client.Request{
 		Body: body,
 	})
 	if err != nil {
@@ -397,8 +376,8 @@ func (u *Upstash) MSetNX(kvPairs []KV) (int, error) {
 
 // PSETEX works exactly like SETEX with the sole difference that the expire
 // time is specified in milliseconds instead of seconds.
-func (u *Upstash) PSetEX(key string, milliseconds int, value string) error {
-	_, err := u.client.Write(client.Request{
+func (u *Upstash) PSetEX(ctx context.Context, key string, milliseconds int, value string) error {
+	_, err := u.client.Write(ctx, client.Request{
 		Body: []string{"psetex", key, fmt.Sprintf("%d", milliseconds), value},
 	})
 	return err
@@ -409,8 +388,8 @@ func (u *Upstash) PSetEX(key string, milliseconds int, value string) error {
 // with the key is discarded on successful SET operation.
 //
 // https://redis.io/commands/set
-func (u *Upstash) Set(key string, value string) error {
-	_, err := u.client.Write(client.Request{
+func (u *Upstash) Set(ctx context.Context, key string, value string) error {
+	_, err := u.client.Write(ctx, client.Request{
 		Body: []string{"set", key, value},
 	})
 	return err
@@ -419,7 +398,7 @@ func (u *Upstash) Set(key string, value string) error {
 // Same as Set but with additional options
 //
 // https://redis.io/commands/set
-func (u *Upstash) SetWithOptions(key string, value string, options SetOptions) error {
+func (u *Upstash) SetWithOptions(ctx context.Context, key string, value string, options SetOptions) error {
 	body := []string{"set", key, value}
 	if options.EX != 0 {
 		body = append(body, "ex", fmt.Sprintf("%d", options.EX))
@@ -433,7 +412,7 @@ func (u *Upstash) SetWithOptions(key string, value string, options SetOptions) e
 		body = append(body, "xx")
 	}
 
-	_, err := u.client.Write(client.Request{
+	_, err := u.client.Write(ctx, client.Request{
 		Body: body,
 	})
 	if err != nil {
@@ -458,9 +437,9 @@ func (u *Upstash) SetWithOptions(key string, value string, options SetOptions) e
 // An error is returned when seconds is invalid.
 //
 // https://redis.io/commands/setex
-func (u *Upstash) SetEX(key string, seconds int, value string) error {
+func (u *Upstash) SetEX(ctx context.Context, key string, seconds int, value string) error {
 
-	_, err := u.client.Write(client.Request{
+	_, err := u.client.Write(ctx, client.Request{
 		Body: []string{"setex", key, fmt.Sprintf("%d", seconds), value},
 	})
 	return err
@@ -476,9 +455,9 @@ func (u *Upstash) SetEX(key string, seconds int, value string) error {
 // - 0 if the key was not set
 //
 // https://redis.io/commands/setnx
-func (u *Upstash) SetNX(key string, value string) (int, error) {
+func (u *Upstash) SetNX(ctx context.Context, key string, value string) (int, error) {
 
-	res, err := u.client.Write(client.Request{
+	res, err := u.client.Write(ctx, client.Request{
 		Body: []string{"setnx", key, value},
 	})
 	if err != nil {
@@ -512,9 +491,9 @@ func (u *Upstash) SetNX(key string, value string) (int, error) {
 // Returns the length of the string after it was modified by the command.
 //
 // https://redis.io/commands/setrange
-func (u *Upstash) SetRange(key string, offset int, value string) error {
+func (u *Upstash) SetRange(ctx context.Context, key string, offset int, value string) error {
 
-	_, err := u.client.Write(client.Request{
+	_, err := u.client.Write(ctx, client.Request{
 		Body: []string{"setrange", key, fmt.Sprintf("%d", offset), value},
 	})
 	return err
@@ -527,8 +506,8 @@ func (u *Upstash) SetRange(key string, offset int, value string) error {
 // Returns the length of the string at key, or 0 when key does not exist.
 //
 // https://redis.io/commands/strlen
-func (u *Upstash) StrLen(key string) (int, error) {
-	res, err := u.client.Read(client.Request{
+func (u *Upstash) StrLen(ctx context.Context, key string) (int, error) {
+	res, err := u.client.Read(ctx, client.Request{
 		Path: []string{"strlen", key},
 	})
 
@@ -540,8 +519,8 @@ func (u *Upstash) StrLen(key string) (int, error) {
 
 // Delete all the keys of all the existing databases, not just the currently
 // selected one.
-func (u *Upstash) FlushAll() error {
-	_, err := u.client.Write(client.Request{
+func (u *Upstash) FlushAll(ctx context.Context) error {
+	_, err := u.client.Write(ctx, client.Request{
 		Body: []string{"flushall"},
 	})
 	return err

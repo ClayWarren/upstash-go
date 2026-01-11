@@ -20,6 +20,7 @@ go get github.com/claywarren/upstash-go
 package main
 
 import (
+	"context"
 	"fmt"
 	"log"
 	
@@ -42,14 +43,16 @@ func main() {
 		log.Fatal(err)
 	}
 
+	ctx := context.Background()
+
 	// Set a key
-	err = client.Set("foo", "bar")
+	err = client.Set(ctx, "foo", "bar")
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	// Get a key
-	value, err := client.Get("foo")
+	value, err := client.Get(ctx, "foo")
 	if err != nil {
 		log.Fatal(err)
 	}

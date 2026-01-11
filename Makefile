@@ -1,4 +1,4 @@
-.PHONY: all build test lint fmt clean
+.PHONY: all build test lint fmt clean check
 
 all: build test lint
 
@@ -17,3 +17,5 @@ fmt:
 clean:
 	go clean
 	rm -f coverage.txt
+
+check: fmt build test lint

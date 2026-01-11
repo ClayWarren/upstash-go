@@ -1,6 +1,7 @@
 package upstash_test
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -42,7 +43,7 @@ func setupMockServer(t *testing.T, handlers []mockHandler) (*upstash.Upstash, fu
 
 		// Send Response
 		w.WriteHeader(h.status)
-		json.NewEncoder(w).Encode(map[string]any{
+		_ = json.NewEncoder(w).Encode(map[string]any{
 			"result": h.response,
 		})
 		step++
@@ -68,7 +69,7 @@ func TestUnitKeys(t *testing.T) {
 	})
 	defer close()
 
-	keys, err := u.Keys("*")
+	keys, err := u.Keys(context.Background(), "*")
 	require.NoError(t, err)
 	require.Equal(t, []string{"k1", "k2"}, keys)
 }
@@ -84,7 +85,7 @@ func TestUnitAppend(t *testing.T) {
 	})
 	defer close()
 
-	val, err := u.Append("k", "v")
+	val, err := u.Append(context.Background(), "k", "v")
 	require.NoError(t, err)
 	require.Equal(t, 5, val)
 }
@@ -100,7 +101,7 @@ func TestUnitDecr(t *testing.T) {
 	})
 	defer close()
 
-	val, err := u.Decr("k")
+	val, err := u.Decr(context.Background(), "k")
 	require.NoError(t, err)
 	require.Equal(t, 9, val)
 }
@@ -116,7 +117,7 @@ func TestUnitDecrBy(t *testing.T) {
 	})
 	defer close()
 
-	val, err := u.DecrBy("k", 2)
+	val, err := u.DecrBy(context.Background(), "k", 2)
 	require.NoError(t, err)
 	require.Equal(t, 8, val)
 }
@@ -131,7 +132,7 @@ func TestUnitGet(t *testing.T) {
 	})
 	defer close()
 
-	val, err := u.Get("foo")
+	val, err := u.Get(context.Background(), "foo")
 	require.NoError(t, err)
 	require.Equal(t, "bar", val)
 }
@@ -146,7 +147,7 @@ func TestUnitGetRange(t *testing.T) {
 	})
 	defer close()
 
-	val, err := u.GetRange("hello", 2, 3)
+	val, err := u.GetRange(context.Background(), "hello", 2, 3)
 	require.NoError(t, err)
 	require.Equal(t, "lo", val)
 }
@@ -162,7 +163,7 @@ func TestUnitGetSet(t *testing.T) {
 	})
 	defer close()
 
-	val, err := u.GetSet("k", "new")
+	val, err := u.GetSet(context.Background(), "k", "new")
 	require.NoError(t, err)
 	require.Equal(t, "old", val)
 }
@@ -178,7 +179,7 @@ func TestUnitIncr(t *testing.T) {
 	})
 	defer close()
 
-	val, err := u.Incr("counter")
+	val, err := u.Incr(context.Background(), "counter")
 	require.NoError(t, err)
 	require.Equal(t, 5, val)
 }
@@ -194,7 +195,7 @@ func TestUnitIncrBy(t *testing.T) {
 	})
 	defer close()
 
-	val, err := u.IncrBy("counter", 2)
+	val, err := u.IncrBy(context.Background(), "counter", 2)
 	require.NoError(t, err)
 	require.Equal(t, 7, val)
 }
@@ -210,7 +211,7 @@ func TestUnitIncrByFloat(t *testing.T) {
 	})
 	defer close()
 
-	val, err := u.IncrByFloat("k", 1.5)
+	val, err := u.IncrByFloat(context.Background(), "k", 1.5)
 	require.NoError(t, err)
 	require.Equal(t, 2.5, val)
 }
@@ -225,7 +226,7 @@ func TestUnitMGet(t *testing.T) {
 	})
 	defer close()
 
-	vals, err := u.MGet([]string{"k1", "k2"})
+	vals, err := u.MGet(context.Background(), []string{"k1", "k2"})
 	require.NoError(t, err)
 	require.Equal(t, []string{"v1", "v2"}, vals)
 }
@@ -241,7 +242,7 @@ func TestUnitMSet(t *testing.T) {
 	})
 	defer close()
 
-	err := u.MSet([]upstash.KV{{Key: "k1", Value: "v1"}, {Key: "k2", Value: "v2"}})
+	err := u.MSet(context.Background(), []upstash.KV{{Key: "k1", Value: "v1"}, {Key: "k2", Value: "v2"}})
 	require.NoError(t, err)
 }
 
@@ -256,7 +257,7 @@ func TestUnitMSetNX(t *testing.T) {
 	})
 	defer close()
 
-	val, err := u.MSetNX([]upstash.KV{{Key: "k1", Value: "v1"}})
+	val, err := u.MSetNX(context.Background(), []upstash.KV{{Key: "k1", Value: "v1"}})
 	require.NoError(t, err)
 	require.Equal(t, 1, val)
 }
@@ -272,7 +273,7 @@ func TestUnitPSetEX(t *testing.T) {
 	})
 	defer close()
 
-	err := u.PSetEX("k", 1000, "v")
+	err := u.PSetEX(context.Background(), "k", 1000, "v")
 	require.NoError(t, err)
 }
 
@@ -287,7 +288,7 @@ func TestUnitSet(t *testing.T) {
 	})
 	defer close()
 
-	err := u.Set("foo", "bar")
+	err := u.Set(context.Background(), "foo", "bar")
 	require.NoError(t, err)
 }
 
@@ -302,7 +303,7 @@ func TestUnitSetWithOptions(t *testing.T) {
 	})
 	defer close()
 
-	err := u.SetWithOptions("k", "v", upstash.SetOptions{EX: 10, NX: true})
+	err := u.SetWithOptions(context.Background(), "k", "v", upstash.SetOptions{EX: 10, NX: true})
 	require.NoError(t, err)
 }
 
@@ -317,7 +318,7 @@ func TestUnitSetEX(t *testing.T) {
 	})
 	defer close()
 
-	err := u.SetEX("k", 10, "v")
+	err := u.SetEX(context.Background(), "k", 10, "v")
 	require.NoError(t, err)
 }
 
@@ -332,7 +333,7 @@ func TestUnitSetNX(t *testing.T) {
 	})
 	defer close()
 
-	val, err := u.SetNX("k", "v")
+	val, err := u.SetNX(context.Background(), "k", "v")
 	require.NoError(t, err)
 	require.Equal(t, 1, val)
 }
@@ -348,7 +349,7 @@ func TestUnitSetRange(t *testing.T) {
 	})
 	defer close()
 
-	err := u.SetRange("k", 2, "v")
+	err := u.SetRange(context.Background(), "k", 2, "v")
 	require.NoError(t, err)
 }
 
@@ -362,7 +363,7 @@ func TestUnitStrLen(t *testing.T) {
 	})
 	defer close()
 
-	val, err := u.StrLen("k")
+	val, err := u.StrLen(context.Background(), "k")
 	require.NoError(t, err)
 	require.Equal(t, 10, val)
 }
@@ -378,14 +379,14 @@ func TestUnitFlushAll(t *testing.T) {
 	})
 	defer close()
 
-	err := u.FlushAll()
+	err := u.FlushAll(context.Background())
 	require.NoError(t, err)
 }
 
 func TestUnitError(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(map[string]any{
+		_ = json.NewEncoder(w).Encode(map[string]any{
 			"error": "ERR wrong number of arguments",
 		})
 	}))
@@ -397,7 +398,7 @@ func TestUnitError(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	_, err = u.Get("foo")
+	_, err = u.Get(context.Background(), "foo")
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "ERR wrong number of arguments")
 }
@@ -405,36 +406,39 @@ func TestUnitError(t *testing.T) {
 func TestUnitClientErrors(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(map[string]any{"error": "mock error"})
+		_ = json.NewEncoder(w).Encode(map[string]any{"error": "mock error"})
 	}))
 	defer server.Close()
 
 	u, _ := upstash.New(upstash.Options{Url: server.URL, Token: "t"})
 
-	t.Run("Append", func(t *testing.T) { _, err := u.Append("k", "v"); require.Error(t, err) })
-	t.Run("Decr", func(t *testing.T) { _, err := u.Decr("k"); require.Error(t, err) })
-	t.Run("DecrBy", func(t *testing.T) { _, err := u.DecrBy("k", 1); require.Error(t, err) })
-	t.Run("GetRange", func(t *testing.T) { _, err := u.GetRange("k", 0, 1); require.Error(t, err) })
-	t.Run("GetSet", func(t *testing.T) { _, err := u.GetSet("k", "v"); require.Error(t, err) })
-	t.Run("Incr", func(t *testing.T) { _, err := u.Incr("k"); require.Error(t, err) })
-	t.Run("IncrBy", func(t *testing.T) { _, err := u.IncrBy("k", 1); require.Error(t, err) })
-	t.Run("IncrByFloat", func(t *testing.T) { _, err := u.IncrByFloat("k", 1.1); require.Error(t, err) })
-	t.Run("MGet", func(t *testing.T) { _, err := u.MGet([]string{"k"}); require.Error(t, err) })
-	t.Run("MSetNX", func(t *testing.T) { _, err := u.MSetNX([]upstash.KV{{Key: "k", Value: "v"}}); require.Error(t, err) })
-	t.Run("SetNX", func(t *testing.T) { _, err := u.SetNX("k", "v"); require.Error(t, err) })
-	t.Run("StrLen", func(t *testing.T) { _, err := u.StrLen("k"); require.Error(t, err) })
+	t.Run("Append", func(t *testing.T) { _, err := u.Append(context.Background(), "k", "v"); require.Error(t, err) })
+	t.Run("Decr", func(t *testing.T) { _, err := u.Decr(context.Background(), "k"); require.Error(t, err) })
+	t.Run("DecrBy", func(t *testing.T) { _, err := u.DecrBy(context.Background(), "k", 1); require.Error(t, err) })
+	t.Run("GetRange", func(t *testing.T) { _, err := u.GetRange(context.Background(), "k", 0, 1); require.Error(t, err) })
+	t.Run("GetSet", func(t *testing.T) { _, err := u.GetSet(context.Background(), "k", "v"); require.Error(t, err) })
+	t.Run("Incr", func(t *testing.T) { _, err := u.Incr(context.Background(), "k"); require.Error(t, err) })
+	t.Run("IncrBy", func(t *testing.T) { _, err := u.IncrBy(context.Background(), "k", 1); require.Error(t, err) })
+	t.Run("IncrByFloat", func(t *testing.T) { _, err := u.IncrByFloat(context.Background(), "k", 1.1); require.Error(t, err) })
+	t.Run("MGet", func(t *testing.T) { _, err := u.MGet(context.Background(), []string{"k"}); require.Error(t, err) })
+	t.Run("MSetNX", func(t *testing.T) {
+		_, err := u.MSetNX(context.Background(), []upstash.KV{{Key: "k", Value: "v"}})
+		require.Error(t, err)
+	})
+	t.Run("SetNX", func(t *testing.T) { _, err := u.SetNX(context.Background(), "k", "v"); require.Error(t, err) })
+	t.Run("StrLen", func(t *testing.T) { _, err := u.StrLen(context.Background(), "k"); require.Error(t, err) })
 }
 
 func TestUnitSetWithOptionsErrors(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(map[string]any{"error": "mock error"})
+		_ = json.NewEncoder(w).Encode(map[string]any{"error": "mock error"})
 	}))
 	defer server.Close()
 
 	u, _ := upstash.New(upstash.Options{Url: server.URL, Token: "t"})
 
-	err := u.SetWithOptions("k", "v", upstash.SetOptions{EX: 10})
+	err := u.SetWithOptions(context.Background(), "k", "v", upstash.SetOptions{EX: 10})
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "error [set k v ex 10]")
 }
@@ -446,21 +450,21 @@ func TestUnitKeysError(t *testing.T) {
 	defer server.Close()
 
 	u, _ := upstash.New(upstash.Options{Url: server.URL, Token: "t"})
-	_, err := u.Keys("*")
+	_, err := u.Keys(context.Background(), "*")
 	require.Error(t, err)
 }
 
 func TestUnitKeysUnexpectedType(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(map[string]any{
+		_ = json.NewEncoder(w).Encode(map[string]any{
 			"result": float64(123), // Unexpected type for Keys
 		})
 	}))
 	defer server.Close()
 
 	u, _ := upstash.New(upstash.Options{Url: server.URL, Token: "t"})
-	_, err := u.Keys("*")
+	_, err := u.Keys(context.Background(), "*")
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "unexpected return type for keys")
 }
